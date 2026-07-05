@@ -1,0 +1,44 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Day Experience AI — Démo</title>
+  <link rel="stylesheet" href="styles.css" />
+</head>
+<body>
+  <main class="app">
+    <header class="header">
+      <h1>Day Experience AI</h1>
+      <p>Assistant conversationnel B2B — Prototype MVP</p>
+    </header>
+
+    <section id="chat" class="chat" aria-live="polite">
+      <div class="message bot">
+        Bonjour ! Votre client a choisi sa destination ? Dites-moi où il va — je vous montre ce qu'il peut y vivre.
+      </div>
+    </section>
+
+    <form id="chat-form" class="chat-form">
+      <input
+        id="message-input"
+        type="text"
+        placeholder="Écrivez votre message…"
+        autocomplete="off"
+        required
+      />
+      <button type="submit">Envoyer</button>
+    </form>
+
+    <section id="quote-panel" class="quote-panel" hidden>
+      <div id="quote-summary" class="quote-summary"></div>
+      <button type="button" id="quote-generate-btn" class="quote-generate-btn" disabled>
+        Générer le devis PDF
+      </button>
+      <p id="quote-hint" class="quote-hint"></p>
+    </section>
+  </main>
+
+  <script src="app.js"></script>
+</body>
+</html>

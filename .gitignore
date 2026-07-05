@@ -1,0 +1,25 @@
+# Python
+__pycache__/
+*.py[cod]
+*.egg-info/
+.venv/
+venv/
+.env
+
+# Outputs / scrape temp
+backend/output/
+backend/data/_*.html
+backend/data/.scrape_checkpoint/
+*.pdf
+
+# IDE
+.vscode/
+.idea/
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Node (frontend futur)
+node_modules/
+dist/
