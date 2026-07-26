@@ -58,7 +58,12 @@ def test_chat_success(mock_completion, mock_settings) -> None:
     )
     assert response.status_code == 200
     data = response.json()
-    assert "activités" in data["reply"].lower() or "aider" in data["reply"].lower()
+    # « Bonjour » → greeting déterministe 0 token (ask destination)
+    assert (
+        "destination" in data["reply"].lower()
+        or "activités" in data["reply"].lower()
+        or "aider" in data["reply"].lower()
+    )
     assert data["session_id"] == "test-session-1"
 
 

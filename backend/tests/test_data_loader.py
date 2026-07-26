@@ -56,9 +56,30 @@ def test_search_by_budget(loader: DataLoader) -> None:
         assert price is not None and price <= 25
 
 
-def test_search_by_profil(loader: DataLoader) -> None:
-    couple = loader.search_activities(destination_name="Paris", profil="couple", limit=5)
-    assert all("couple" in (r.get("profil_cible") or "").lower() for r in couple)
+def test_search_by_profil_is_soft(loader: DataLoader) -> None:
+    """Profil ne filtre plus en dur : couple voit aussi general / autres profils."""
+    with_profil = loader.search_activities(destination_name="Paris", profil="couple", limit=20)
+    without = loader.search_activities(destination_name="Paris", profil=None, limit=20)
+    assert len(with_profil) == len(without)
+    assert len(with_profil) >= 5
+    profils = {(r.get("profil_cible") or "general").lower() for r in with_profil}
+    assert "general" in profils or len(profils) >= 1
+
+
+def test_catalog_couple_includes_general_and_solo() -> None:
+    from search.catalog_search import CatalogSearchParams, catalog_search
+
+    result = catalog_search(
+        CatalogSearchParams(destination="Bali", profil="couple", limit=15)
+    )
+    assert result.has_results()
+    assert result.count >= 5
+    profils = {
+        (r.get("profil_cible") or "general").casefold() for r in result.activities
+    }
+    # Plus que le seul tag couple : general et/ou solo présents
+    assert profils & {"general", "solo", "couple"}
+    assert len(profils) >= 2 or "general" in profils
 
 
 def test_cache_reload(loader: DataLoader) -> None:

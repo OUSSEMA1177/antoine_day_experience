@@ -5,10 +5,13 @@ from __future__ import annotations
 import re
 from enum import Enum
 
+from search.geo import detect_country_query
+
 
 class Intent(str, Enum):
     GREETING = "greeting"
     ACTIVITY_SEARCH = "activity_search"
+    COUNTRY_QUERY = "country_query"
     TUNNEL_QUALIFY = "tunnel_qualify"
     QUOTE = "quote"
     ORDER = "order"
@@ -20,7 +23,20 @@ class Intent(str, Enum):
 ORDER_RE = re.compile(r"\b([A-Z]{2,}-\d{3,})\b", re.I)
 GREETINGS = frozenset({"bonjour", "bonsoir", "salut", "hello", "hi", "coucou"})
 FAQ_HINTS = ("commission", "annulation", "paiement", "facture", "remboursement")
-SUPPORT_HINTS = ("remboursement", "réclamation", "reclamation", "litige", "insatisfait", "plainte")
+SUPPORT_HINTS = (
+    "remboursement",
+    "rembourser",
+    "réclamation",
+    "reclamation",
+    "litige",
+    "insatisfait",
+    "mécontent",
+    "mecontent",
+    "plainte",
+    "refund",
+    "complaint",
+    "service client",
+)
 QUOTE_HINTS = ("devis", "quote", "proposition", "générer le pdf")
 PLAN_HINTS = ("plan", "propose", "proposition", "à ton choix", "a ton choix", "choisis", "sélection")
 ACTIVITY_HINTS = (
@@ -54,6 +70,9 @@ def detect_intent(message: str, *, escalated: bool = False) -> Intent:
 
     if any(h in lower for h in PLAN_HINTS):
         return Intent.ACTIVITY_SEARCH
+
+    if detect_country_query(text):
+        return Intent.COUNTRY_QUERY
 
     if any(h in lower for h in ACTIVITY_HINTS):
         return Intent.ACTIVITY_SEARCH

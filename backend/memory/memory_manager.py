@@ -6,6 +6,8 @@ from memory.session_store import session_store
 
 SLOT_KEYS = (
     "destination",
+    "destination_demandee",
+    "region_interest",
     "dates",
     "duree",
     "profil_voyageur",
@@ -23,6 +25,12 @@ SLOT_KEYS = (
     "activites_discutees",
     "devis_ref",
     "validite_jours",
+    "awaiting_quote_confirm",
+    "awaiting_add_activity",
+    "awaiting_city_confirm",
+    "awaiting_city_pick",
+    "pending_destination",
+    "pending_cities",
 )
 
 
@@ -36,6 +44,7 @@ class MemoryManager:
             if key not in SLOT_KEYS or value is None:
                 continue
             if isinstance(value, str) and not value.strip():
+                slots.pop(key, None)
                 continue
             slots[key] = value
 
@@ -68,6 +77,8 @@ class MemoryManager:
 
         labels = {
             "destination": "Destination",
+            "destination_demandee": "Destination demandée (hors catalogue)",
+            "region_interest": "Zone / continent d'intérêt",
             "dates": "Dates",
             "duree": "Durée",
             "profil_voyageur": "Profil voyageur",

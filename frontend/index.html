@@ -3,41 +3,191 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>Day Experience AI — Démo</title>
+  <title>Day Experience — Assistant B2B</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link href="https://fonts.googleapis.com/css2?family=DM+Sans:ital,opsz,wght@0,9..40,400;0,9..40,500;0,9..40,600;0,9..40,700;1,9..40,400&family=Fraunces:opsz,wght@9..144,500;9..144,600;9..144,700&display=swap" rel="stylesheet" />
   <link rel="stylesheet" href="styles.css" />
 </head>
 <body>
-  <main class="app">
-    <header class="header">
-      <h1>Day Experience AI</h1>
-      <p>Assistant conversationnel B2B — Prototype MVP</p>
-    </header>
+  <!-- Backdrop : site Day Experience (démo) -->
+  <div class="site">
+    <nav class="site-nav">
+      <span class="brand">Day Experience</span>
+      <span class="nav-meta">Espace partenaires · Démo</span>
+    </nav>
 
-    <section id="chat" class="chat" aria-live="polite">
-      <div class="message bot">
-        Bonjour ! Votre client a choisi sa destination ? Dites-moi où il va — je vous montre ce qu'il peut y vivre.
+    <section class="hero">
+      <div class="hero-copy">
+        <p class="hero-kicker">Plateforme B2B</p>
+        <h1 class="hero-title">Day Experience</h1>
+        <p class="hero-lead">
+          Excursions, billets et transferts pour vos clients — devis White Label en quelques échanges.
+        </p>
+        <p class="hero-hint">
+          L’assistant partenaire s’ouvre en bas à droite.
+        </p>
       </div>
     </section>
 
-    <form id="chat-form" class="chat-form">
-      <input
-        id="message-input"
-        type="text"
-        placeholder="Écrivez votre message…"
-        autocomplete="off"
-        required
-      />
-      <button type="submit">Envoyer</button>
-    </form>
-
-    <section id="quote-panel" class="quote-panel" hidden>
-      <div id="quote-summary" class="quote-summary"></div>
-      <button type="button" id="quote-generate-btn" class="quote-generate-btn" disabled>
-        Générer le devis PDF
-      </button>
-      <p id="quote-hint" class="quote-hint"></p>
+    <section class="site-strip" aria-hidden="true">
+      <p>Plus de 20&nbsp;000 activités · Destinations mondiales · Tarifs nets agence</p>
     </section>
-  </main>
+  </div>
+
+  <!-- Launcher flotant -->
+  <button
+    type="button"
+    id="chat-launcher"
+    class="chat-launcher"
+    aria-label="Ouvrir l’assistant Day Experience"
+    aria-expanded="false"
+    aria-controls="chat-widget"
+  >
+    <span class="launcher-icon launcher-icon-open" aria-hidden="true">
+      <svg width="28" height="28" viewBox="0 0 24 24" fill="none">
+        <path d="M4 6.5A2.5 2.5 0 0 1 6.5 4h11A2.5 2.5 0 0 1 20 6.5v7a2.5 2.5 0 0 1-2.5 2.5H12l-4 3.5V16H6.5A2.5 2.5 0 0 1 4 13.5v-7Z" stroke="currentColor" stroke-width="1.7" stroke-linejoin="round"/>
+        <circle cx="9" cy="10" r="1" fill="currentColor"/>
+        <circle cx="12" cy="10" r="1" fill="currentColor"/>
+        <circle cx="15" cy="10" r="1" fill="currentColor"/>
+      </svg>
+    </span>
+    <span class="launcher-icon launcher-icon-close" aria-hidden="true">
+      <svg width="22" height="22" viewBox="0 0 24 24" fill="none">
+        <path d="M6 6l12 12M18 6L6 18" stroke="currentColor" stroke-width="2" stroke-linecap="round"/>
+      </svg>
+    </span>
+  </button>
+
+  <!-- Widget chat popup -->
+  <aside
+    id="chat-widget"
+    class="chat-widget"
+    role="dialog"
+    aria-label="Assistant Day Experience"
+    aria-hidden="true"
+  >
+    <header class="widget-header">
+      <div class="widget-identity">
+        <span class="widget-avatar" aria-hidden="true">DE</span>
+        <div>
+          <strong class="widget-title">Antoine, Day Experience</strong>
+          <span class="widget-status"><span class="status-dot"></span> En ligne · B2B</span>
+        </div>
+      </div>
+      <div class="widget-header-actions">
+        <button type="button" id="chat-new-session" class="widget-new" aria-label="Nouvelle conversation">
+          Nouveau
+        </button>
+        <button type="button" id="chat-minimize" class="widget-minimize" aria-label="Réduire le chat">
+          <svg width="18" height="18" viewBox="0 0 24 24" fill="none" aria-hidden="true">
+            <path d="M5 12h14" stroke="currentColor" stroke-width="2" stroke-linecap="round"/>
+          </svg>
+        </button>
+      </div>
+    </header>
+
+    <nav class="widget-tabs" role="tablist" aria-label="Assistant">
+      <button
+        type="button"
+        class="widget-tab is-active"
+        role="tab"
+        id="tab-chat"
+        aria-selected="true"
+        aria-controls="panel-chat"
+        data-tab="chat"
+      >
+        Chat
+      </button>
+      <button
+        type="button"
+        class="widget-tab"
+        role="tab"
+        id="tab-faq"
+        aria-selected="false"
+        aria-controls="panel-faq"
+        data-tab="faq"
+      >
+        FAQ
+      </button>
+    </nav>
+
+    <div id="panel-chat" class="widget-panel is-active" role="tabpanel" aria-labelledby="tab-chat">
+      <section id="chat" class="chat" aria-live="polite">
+        <div class="message bot">
+          <div class="message-body">
+            Bonjour ! Votre client a choisi sa destination ? Dites-moi où il va — je vous montre ce qu'il peut y vivre.
+          </div>
+        </div>
+      </section>
+
+      <form id="chat-form" class="chat-form">
+        <input
+          id="message-input"
+          type="text"
+          placeholder="Écrivez votre message…"
+          autocomplete="off"
+          required
+        />
+        <button type="submit" aria-label="Envoyer">
+          <svg width="20" height="20" viewBox="0 0 24 24" fill="none" aria-hidden="true">
+            <path d="M4 12h14M13 6l6 6-6 6" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+          </svg>
+        </button>
+      </form>
+    </div>
+
+    <div id="panel-faq" class="widget-panel" role="tabpanel" aria-labelledby="tab-faq" hidden>
+      <div class="faq-toolbar">
+        <label class="faq-search-label" for="faq-search">Rechercher</label>
+        <input
+          id="faq-search"
+          type="search"
+          class="faq-search"
+          placeholder="Ex. commission, annulation…"
+          autocomplete="off"
+        />
+      </div>
+      <div id="faq-list" class="faq-list" aria-live="polite"></div>
+      <p id="faq-empty" class="faq-empty" hidden>Aucun résultat pour cette recherche.</p>
+    </div>
+  </aside>
+
+  <!-- Dock test : tokens + devis (conservé pour QA) -->
+  <aside class="dev-dock" aria-label="Outils de test">
+    <button type="button" id="dock-toggle" class="dock-toggle" aria-expanded="true">
+      <span>Outils de test</span>
+      <span class="dock-chevron" aria-hidden="true">▾</span>
+    </button>
+    <div id="dock-body" class="dock-body">
+      <div class="dock-meta">
+        <p class="dock-legend">
+          <span class="pill pill-llm">IA · tokens</span>
+          <span class="pill pill-local">Catalogue · 0 token</span>
+          visibles sous chaque réponse bot
+        </p>
+        <p class="dock-session">
+          Session active ·
+          <code id="session-display">—</code>
+          ·
+          <a id="partner-link" href="?partner_id=1">partner_id=1</a>
+        </p>
+      </div>
+
+      <section id="quote-panel" class="quote-panel">
+        <h2 class="quote-heading">Devis manager</h2>
+        <div id="quote-summary" class="quote-summary">
+          Complétez la conversation (destination, profil, activités, agence).
+        </div>
+        <button type="button" id="quote-generate-btn" class="quote-generate-btn" disabled>
+          Générer le devis PDF
+        </button>
+        <p id="quote-hint" class="quote-hint">
+          Le bouton s’active quand destination, profil, activités catalogue et agence sont connus.
+        </p>
+      </section>
+    </div>
+  </aside>
 
   <script src="app.js"></script>
 </body>

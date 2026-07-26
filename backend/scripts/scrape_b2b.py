@@ -118,6 +118,7 @@ def build_destinations_rows(destinations: dict[int, str]) -> list[dict]:
             "nom": name,
             "pays": "",
             "region": "",
+            "aliases": "",
             "description": f"Activités touristiques à {name}",
             "saison_ideale": "",
         }
@@ -199,7 +200,7 @@ def write_all_csvs(
         }
     ]
 
-    write_csv(out / "destinations.csv", ["id", "nom", "pays", "region", "description", "saison_ideale"], dest_rows)
+    write_csv(out / "destinations.csv", ["id", "nom", "pays", "region", "aliases", "description", "saison_ideale"], dest_rows)
     write_csv(out / "activities.csv", ACTIVITY_FIELDS, act_rows)
     write_csv(out / "faq.csv", ["id", "question", "reponse", "categorie"], faq_rows)
     write_csv(out / "orders.csv", ["id", "reference", "partner_id", "statut", "date", "activites", "montant"], order_rows)
@@ -441,7 +442,7 @@ def main() -> int:
 
         details = {}
         save_checkpoint(cp, destinations, cards_list, details)
-        write_csv(out / "destinations.csv", ["id", "nom", "pays", "region", "description", "saison_ideale"], build_destinations_rows(destinations))
+        write_csv(out / "destinations.csv", ["id", "nom", "pays", "region", "aliases", "description", "saison_ideale"], build_destinations_rows(destinations))
         write_activities_only(out, cards_list, details, client)
         logger.info("Liste activités sauvegardée (sans détails produit).")
 

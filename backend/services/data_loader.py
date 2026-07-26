@@ -11,6 +11,7 @@ import re
 from pathlib import Path
 
 from search.geo import expand_to_keywords
+from search.themes import ENVIE_TERMS, term_in_text, theme_matches_activity
 
 DATA_DIR = Path(__file__).resolve().parent.parent / "data"
 
@@ -37,6 +38,27 @@ def _parse_price(value: str | None) -> float | None:
 
 def _norm(text: str | None) -> str:
     return (text or "").strip().casefold()
+
+
+def _is_close_place_name(needle: str, candidate: str) -> bool:
+    """Tolère une faute de frappe (ex. marrakch → marrakech)."""
+    if not needle or not candidate:
+        return False
+    if needle == candidate:
+        return True
+    if len(needle) < 5 or len(candidate) < 5:
+        return False
+    if needle in candidate or candidate in needle:
+        return True
+    if abs(len(needle) - len(candidate)) > 1:
+        return False
+    if len(needle) == len(candidate):
+        return sum(a != b for a, b in zip(needle, candidate)) <= 1
+    short, long = (needle, candidate) if len(needle) < len(candidate) else (candidate, needle)
+    for i in range(len(long)):
+        if short == long[:i] + long[i + 1 :]:
+            return True
+    return False
 
 
 class DataLoader:
@@ -104,8 +126,29 @@ class DataLoader:
             if _norm(row.get("nom")) == needle:
                 return row
         for row in self.load_destinations():
+            aliases = (row.get("aliases") or "").split("|")
+            for alias in aliases:
+                alias_norm = _norm(alias)
+                if alias_norm and (alias_norm == needle or needle in alias_norm or alias_norm in needle):
+                    return row
+        for row in self.load_destinations():
             if needle in _norm(row.get("nom")):
                 return row
+        for row in self.load_destinations():
+            nom_norm = _norm(row.get("nom"))
+            if _is_close_place_name(needle, nom_norm):
+                return row
+            for alias in (row.get("aliases") or "").split("|"):
+                alias_norm = _norm(alias)
+                if alias_norm and _is_close_place_name(needle, alias_norm):
+                    return row
+        return None
+
+    def resolve_destination_name(self, name: str) -> str | None:
+        """Nom catalogue canonique (ville) depuis nom ou alias."""
+        dest = self.get_destination_by_name(name)
+        if dest:
+            return (dest.get("nom") or "").strip() or None
         return None
 
     def resolve_destination_id(
@@ -141,9 +184,14 @@ class DataLoader:
         query: str | None = None,
         limit: int | None = None,
     ) -> list[dict[str, str]]:
+        """
+        Filtre destination / budget / texte.
+        ``profil`` n'exclut plus : boost au ranking (catalogue B2B = plus de choix).
+        """
         resolved_id = self.resolve_destination_id(destination_id, destination_name)
-        profil_norm = _norm(profil) if profil else None
         query_norm = _norm(query) if query else None
+        # Conservé pour compat API ; non utilisé comme filtre dur
+        _ = profil
 
         if destination_name and not resolved_id and destination_id is None and not query_norm:
             return []
@@ -157,9 +205,6 @@ class DataLoader:
                 price = _parse_price(row.get("prix")) or _parse_price(row.get("prix_public"))
                 if price is None or price > budget_max:
                     continue
-
-            if profil_norm and profil_norm not in _norm(row.get("profil_cible")):
-                continue
 
             if query_norm:
                 haystack = _norm(
@@ -193,7 +238,7 @@ class DataLoader:
         if not needle_norm:
             return []
 
-        profil_norm = _norm(profil) if profil else None
+        _ = profil  # boost ranking uniquement — pas d'exclusion
         results: list[dict[str, str]] = []
         seen_ids: set[str] = set()
 
@@ -215,16 +260,13 @@ class DataLoader:
                     ]
                 )
             )
-            if needle_norm not in haystack:
+            if not term_in_text(needle_norm, haystack):
                 continue
 
             if budget_max is not None:
                 price = _parse_price(row.get("prix")) or _parse_price(row.get("prix_public"))
                 if price is None or price > budget_max:
                     continue
-
-            if profil_norm and profil_norm not in _norm(row.get("profil_cible")):
-                continue
 
             seen_ids.add(activity_id)
             results.append(row)
@@ -244,34 +286,21 @@ class DataLoader:
     ) -> tuple[list[dict[str, str]], dict[str, str]]:
         """
         Recherche activités avec résolution élargie (pays → villes du catalogue, titre…).
-        Retourne (résultats, métadonnées de résolution).
+        ``profil`` n'exclut plus les lignes — scoring côté ranking / recommend.
         """
         limit = limit or 5
         label = (destination_name or query or "").strip()
+        _ = profil
 
         rows = self.search_activities(
             destination_name=destination_name,
             budget_max=budget_max,
-            profil=profil,
+            profil=None,
             query=query,
             limit=limit,
         )
         if rows:
             return rows, {"matched_by": "destination", "label": label or "catalogue"}
-
-        if profil and destination_name:
-            rows = self.search_activities(
-                destination_name=destination_name,
-                budget_max=budget_max,
-                profil=None,
-                query=query,
-                limit=limit,
-            )
-            if rows:
-                return rows, {
-                    "matched_by": "destination_profil_relaxed",
-                    "label": label or "catalogue",
-                }
 
         search_terms: list[str] = []
         if destination_name:
@@ -287,7 +316,7 @@ class DataLoader:
             for row in self._search_by_text_in_activities(
                 term,
                 budget_max=budget_max,
-                profil=profil,
+                profil=None,
                 limit=None,
             ):
                 activity_id = row.get("id", "").strip()
@@ -312,28 +341,8 @@ class DataLoader:
 
         return [], {"matched_by": "none", "label": label}
 
-    # Termes de recherche par envie (pour scoring recommandations)
-    ENVIE_SEARCH_TERMS: dict[str, list[str]] = {
-        "mer": ["mer", "essaouira", "mogador", "bateau", "plage", "côte", "cote", "atlantique"],
-        "sahara": [
-            "sahara",
-            "désert",
-            "desert",
-            "merzouga",
-            "agafay",
-            "dune",
-            "chameau",
-            "dromadaire",
-            "berbère",
-            "berbere",
-            "campement",
-        ],
-        "aventure": ["quad", "4x4", "buggy", "montgolfière", "montgolfiere", "safari", "buggy"],
-        "culture": ["médina", "medina", "souk", "palais", "musée", "musee", "monument", "bahia"],
-        "gastronomie": ["dîner", "diner", "restaurant", "gastronom", "spectacle", "repas"],
-        "détente": ["spa", "jardin", "calèche", "caleche", "botanique"],
-        "nature": ["atlas", "ouzoud", "ourika", "cascade", "montagne", "vallée", "vallee"],
-    }
+    # Termes de recherche par envie — source unique : search.themes
+    ENVIE_SEARCH_TERMS: dict[str, list[str]] = dict(ENVIE_TERMS)
 
     FAMILY_BOOST_TERMS = (
         "aquatique",
@@ -374,9 +383,14 @@ class DataLoader:
         row_profil = _norm(row.get("profil_cible"))
 
         if profil_norm:
-            if profil_norm in row_profil:
-                score += 4
+            if profil_norm in row_profil or (
+                profil_norm == "groupe" and "groupe" in row_profil
+            ):
+                score += 6
             elif row_profil in ("", "general"):
+                score += 4
+            else:
+                # Autre profil cible : toujours proposé (agence B2B = plus de choix)
                 score += 2
             if profil_norm == "famille":
                 if any(term in haystack for term in self.FAMILY_BOOST_TERMS):
@@ -384,9 +398,12 @@ class DataLoader:
 
         for envie in envies or []:
             envie_key = _norm(envie)
+            if theme_matches_activity(haystack, envie_key):
+                score += 3
+                continue
             terms = self.ENVIE_SEARCH_TERMS.get(envie_key, [envie_key])
             for term in terms:
-                if _norm(term) in haystack:
+                if term_in_text(term, haystack):
                     score += 3
                     break
 
@@ -488,17 +505,27 @@ class DataLoader:
     def search_faq(self, query: str, limit: int = 5) -> list[dict[str, str]]:
         needle = _norm(query)
         if not needle:
-            return []
+            return self.load_faq()[:limit]
 
+        tokens = [t for t in needle.split() if len(t) >= 2]
         scored: list[tuple[int, dict[str, str]]] = []
         for row in self.load_faq():
             question = _norm(row.get("question"))
             answer = _norm(row.get("reponse"))
+            categorie = _norm(row.get("categorie"))
+            blob = f"{question} {answer} {categorie}"
             score = 0
             if needle in question:
+                score += 4
+            elif needle in blob:
                 score += 2
-            if needle in answer:
-                score += 1
+            for tok in tokens:
+                if tok in question:
+                    score += 2
+                elif tok in categorie:
+                    score += 2
+                elif tok in answer:
+                    score += 1
             if score:
                 scored.append((score, row))
 

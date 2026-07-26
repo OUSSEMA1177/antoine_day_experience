@@ -19,6 +19,11 @@ FORBIDDEN_PHRASES = (
     "vous envoyer le devis par e-mail",
     "envoyer le devis par email",
     "devis généré !",
+    "un conseiller vous contactera rapidement",
+    "un conseiller vous contactera",
+    "demande a été transmise à notre équipe",
+    "demande a ete transmise a notre equipe",
+    "transmise à notre équipe",
 )
 
 

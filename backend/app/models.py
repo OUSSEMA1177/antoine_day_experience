@@ -60,6 +60,18 @@ class PartnerOut(BaseModel):
     greeting_message: str = ""
 
 
+class FaqItemOut(BaseModel):
+    id: str
+    question: str
+    reponse: str
+    categorie: str = ""
+
+
+class FaqResponse(BaseModel):
+    total: int
+    items: list[FaqItemOut]
+
+
 class ChatRequest(BaseModel):
     session_id: str = Field(..., description="Identifiant de session utilisateur")
     message: str = Field(..., min_length=1, description="Message de l'utilisateur")
@@ -86,6 +98,11 @@ class ChatResponse(BaseModel):
     quote_activities: list[ActivityPreview] = Field(default_factory=list)
     destination: str | None = None
     nom_agence: str | None = None
+    llm_used: bool = Field(default=False, description="True si Claude/LLM a répondu")
+    llm_model: str | None = Field(default=None, description="Modèle LLM utilisé")
+    prompt_tokens: int = Field(default=0, description="Tokens prompt consommés")
+    completion_tokens: int = Field(default=0, description="Tokens réponse consommés")
+    total_tokens: int = Field(default=0, description="Total tokens pour ce message")
 
 
 class QuoteRequest(BaseModel):

@@ -26,8 +26,22 @@ async def chat(payload: ChatRequest) -> ChatResponse:
             quote_activities=meta.get("quote_activities") or [],
             destination=meta.get("destination"),
             nom_agence=meta.get("nom_agence"),
+            llm_used=bool(meta.get("llm_used")),
+            llm_model=meta.get("llm_model"),
+            prompt_tokens=int(meta.get("prompt_tokens") or 0),
+            completion_tokens=int(meta.get("completion_tokens") or 0),
+            total_tokens=int(meta.get("total_tokens") or 0),
         )
     except AgentConfigurationError as exc:
         raise HTTPException(status_code=503, detail=str(exc)) from exc
     except AgentError as exc:
         raise HTTPException(status_code=502, detail=str(exc)) from exc
+
+
+@router.delete("/session/{session_id}")
+async def clear_session(session_id: str) -> dict[str, str]:
+    """Reset mémoire + historique (nouvelle conversation QA)."""
+    from memory.session_store import session_store
+
+    session_store.clear(session_id)
+    return {"status": "cleared", "session_id": session_id}

@@ -10,11 +10,17 @@ from app.config import get_settings
 from app.models import HealthResponse
 from routes.activities import router as activities_router
 from routes.chat import router as chat_router
+from routes.faq import router as faq_router
 from routes.orders import router as orders_router
 from routes.quote import router as quote_router
 
 logger = logging.getLogger(__name__)
 FRONTEND_DIR = Path(__file__).resolve().parent.parent / "frontend"
+
+logging.basicConfig(
+    level=logging.INFO,
+    format="%(levelname)s:%(name)s:%(message)s",
+)
 
 
 @asynccontextmanager
@@ -62,6 +68,7 @@ def create_app() -> FastAPI:
     application.include_router(orders_router)
     application.include_router(quote_router)
     application.include_router(chat_router)
+    application.include_router(faq_router)
 
     @application.get("/", include_in_schema=False)
     async def frontend_root():

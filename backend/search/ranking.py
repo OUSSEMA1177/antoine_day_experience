@@ -6,18 +6,25 @@ import re
 import unicodedata
 from typing import TYPE_CHECKING, Any
 
+from search.themes import (
+    ENVIE_TERMS,
+    canonicalize_theme,
+    term_in_text,
+    theme_matches_activity,
+)
+
 if TYPE_CHECKING:
     from services.data_loader import DataLoader
 
-ENVIE_TERMS: dict[str, list[str]] = {
-    "mer": ["mer", "essaouira", "mogador", "bateau", "plage", "côte", "cote", "atlantique"],
-    "sahara": ["sahara", "désert", "desert", "merzouga", "agafay", "dune", "chameau"],
-    "aventure": ["quad", "4x4", "buggy", "montgolfière", "safari", "sensations"],
-    "culture": ["médina", "medina", "souk", "palais", "musée", "musee", "monument"],
-    "gastronomie": ["dîner", "diner", "restaurant", "gastronom", "spectacle"],
-    "détente": ["spa", "jardin", "calèche", "relax"],
-    "nature": ["atlas", "ouzoud", "cascade", "montagne", "alpes", "mont fuji", "hajar"],
-}
+# Réexport pour compatibilité (catalog_search, data_loader, tests)
+__all__ = [
+    "ENVIE_TERMS",
+    "STOPWORDS",
+    "activity_haystack",
+    "rank_activities",
+    "score_activity",
+    "tokenize_query",
+]
 
 STOPWORDS = frozenset(
     {
@@ -26,6 +33,7 @@ STOPWORDS = frozenset(
         "moi", "tes", "nos", "vos", "bonjour", "hello", "client", "voyage",
         "choisi", "choisit", "destination", "activites", "activité", "devis",
         "veux", "veut", "voulez", "avoir", "faire", "aller", "être", "ete",
+        "asie", "europe", "afrique", "amerique", "amérique",
     }
 )
 
@@ -71,22 +79,37 @@ def score_activity(
     score = 0
 
     for token in query_tokens:
-        if token in haystack:
+        if term_in_text(token, haystack):
             score += 5 if len(token) >= 6 else 3
 
     profil_norm = _norm(profil) if profil else ""
     row_profil = _norm(row.get("profil_cible"))
     if profil_norm:
-        if profil_norm in row_profil:
-            score += 4
+        # Boost uniquement — jamais d'exclusion (solo/general OK pour couple, etc.)
+        if profil_norm in row_profil or (
+            profil_norm.startswith("groupe") and "groupe" in row_profil
+        ):
+            score += 6
         elif row_profil in ("", "general"):
+            score += 4
+        else:
+            score += 2
+        if profil_norm == "famille" and any(
+            term_in_text(t, haystack)
+            for t in ("famille", "enfant", "parc", "aquatique")
+        ):
             score += 2
 
     for theme in themes or []:
-        key = _norm(theme)
-        terms = ENVIE_TERMS.get(key, [key])
-        if any(_norm(t) in haystack for t in terms):
-            score += 4
+        key = canonicalize_theme(theme) or _norm(theme)
+        if theme_matches_activity(haystack, key):
+            # Thème = signal fort pour une recherche agence
+            score += 8
+            terms = ENVIE_TERMS.get(key, [key])
+            # Bonus si plusieurs termes du thème matchent
+            hits = sum(1 for t in terms if term_in_text(t, haystack))
+            if hits >= 2:
+                score += 3
 
     return score
 
@@ -111,7 +134,19 @@ def rank_activities(
     scored.sort(key=lambda item: (-item[0], item[1].get("id", "")))
     if tokens or profil or themes:
         positive = [(s, r) for s, r in scored if s > 0]
-        pool = positive if positive else scored
+        # Si thèmes demandés, ne garder que les activités qui matchent le thème
+        if themes:
+            themed = [
+                (s, r)
+                for s, r in scored
+                if any(
+                    theme_matches_activity(activity_haystack(loader, r), t)
+                    for t in themes
+                )
+            ]
+            pool = themed if themed else []
+        else:
+            pool = positive if positive else scored
     else:
         pool = scored
     return pool[:limit]
