@@ -10,8 +10,10 @@ Agent IA pour les **partenaires B2B** de Day Experience (agences, tour-opérateu
 - Chemins **0 token** pour pays / continent, thèmes, sélection, confirmation devis, FAQ, support
 - NLU (LLM → JSON) uniquement sur le langage flou / mixte
 - Machine à états (`qualifying`, `presenting_list`, `awaiting_quote_confirm`, …)
+- Listes d’activités avec **liens vers les fiches B2B** (`produit.cfm?idActivity=…`)
 - Devis PDF White Label (max 4 activités, IDs session uniquement)
 - Widget chat démo + badge tokens LLM + bouton Nouveau
+- Messages catalogue sans markdown `**` (ton B2B)
 
 ## Architecture
 
@@ -125,6 +127,23 @@ Inclut des **transcripts golden** (Tokyo, Afrique du Sud) qui verrouillent les b
 # Dans .env : B2B_LOGIN, B2B_PASSWORD
 python scripts/scrape_b2b.py --destinations 2222,4362
 ```
+
+## Hébergement (sans Docker)
+
+Pour un serveur / VPS :
+
+1. Cloner le repo et créer `.env` à la racine (copier `.env.example`)
+2. Installer les deps (`cd backend && python -m venv .venv && pip install -r requirements.txt`)
+3. Lancer **sans** `--reload` :
+
+```bash
+cd backend
+uvicorn main:app --host 0.0.0.0 --port 8000
+```
+
+4. Ouvrir `http://<hôte>:8000/?partner_id=1`
+
+**Limitations MVP** : sessions en mémoire (perdues au redémarrage), pas d’auth API, pas de sync panier B2B.
 
 ## Stack
 

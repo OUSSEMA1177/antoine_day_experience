@@ -12,6 +12,14 @@ backend/data/_*.html
 backend/data/.scrape_checkpoint/
 *.pdf
 
+# Sources import (hors catalogue CSV MVP)
+*.xlsx
+*.xls
+backend/data/data day experiencee.csv
+
+# Scratch / scrapes site B2B
+_csearch.js
+
 # IDE
 .vscode/
 .idea/

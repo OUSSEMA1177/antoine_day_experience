@@ -110,3 +110,75 @@ def test_scenario_espagne_then_city_name(mock_settings) -> None:
     assert "1." in reply2 or "Barcelone" in reply2
     mock_nlu.assert_not_called()
     assert meta.get("llm_used") is not True
+
+
+def test_seville_is_not_country_query() -> None:
+    """« Séville » ne doit PAS matcher le hint « ville » (sous-chaîne)."""
+    from search.geo import detect_country_query
+
+    assert detect_country_query("Séville") is None
+    assert detect_country_query("Seville") is None
+    assert detect_country_query("oui Séville") is None
+    assert detect_country_query("je veux Séville") is None
+    assert detect_country_query("quelles villes en Espagne") == "espagne"
+
+
+@patch("agent.orchestrator.get_settings")
+def test_espagne_seville_pick_activates_city(mock_settings) -> None:
+    """Espagne → Séville → activités Séville (pas re-liste pays)."""
+    mock_settings.return_value = _settings()
+    session = "scen-espagne-seville"
+    session_store.clear(session)
+    with patch("litellm.completion") as mock_llm:
+        r1, _, _ = orchestrator.chat(session, "Espagne")
+        assert "Séville" in r1
+        r2, tools, _ = orchestrator.chat(session, "Séville")
+
+    slots = memory_manager.get_slots(session)
+    assert slots.get("destination") == "Séville"
+    assert not slots.get("awaiting_city_pick")
+    assert "Voici des activités" in r2 or "1." in r2
+    assert "city_confirm" in tools
+    mock_llm.assert_not_called()
+
+
+@patch("agent.orchestrator.get_settings")
+def test_city_pick_works_despite_stale_quote_confirm(mock_settings) -> None:
+    """Même si awaiting_quote_confirm est resté collé, le choix de ville gagne."""
+    mock_settings.return_value = _settings()
+    session = "scen-stale-quote-seville"
+    session_store.clear(session)
+    remember_city_offer(
+        session, ["Barcelone", "Grenade", "Séville"], region_key="espagne"
+    )
+    memory_manager.update_slots(session, awaiting_quote_confirm="1", partner_id="1")
+
+    with patch("litellm.completion") as mock_llm:
+        reply, tools, _ = orchestrator.chat(session, "Séville")
+
+    slots = memory_manager.get_slots(session)
+    assert slots.get("destination") == "Séville"
+    assert not slots.get("awaiting_quote_confirm")
+    assert "1." in reply
+    assert "city_confirm" in tools
+    mock_llm.assert_not_called()
+
+
+@patch("agent.orchestrator.get_settings")
+def test_espagne_grenade_and_oui_seville(mock_settings) -> None:
+    """Autres formulations : Grenade, « oui Séville »."""
+    mock_settings.return_value = _settings()
+    with patch("litellm.completion"):
+        session = "scen-espagne-grenade"
+        session_store.clear(session)
+        orchestrator.chat(session, "Espagne")
+        r1, _, _ = orchestrator.chat(session, "Grenade")
+        assert memory_manager.get_slots(session).get("destination") == "Grenade"
+        assert "1." in r1
+
+        session2 = "scen-espagne-oui-sev"
+        session_store.clear(session2)
+        orchestrator.chat(session2, "Espagne")
+        r2, _, _ = orchestrator.chat(session2, "oui Séville")
+        assert memory_manager.get_slots(session2).get("destination") == "Séville"
+        assert "1." in r2

@@ -85,6 +85,6 @@ def build_faq_reply(row: dict[str, str]) -> str:
     question = (row.get("question") or "").strip()
     answer = (row.get("reponse") or "").strip()
     return (
-        f"**{question}**\n\n{answer}\n\n"
+        f"{question}\n\n{answer}\n\n"
         "D'autres questions ? L'onglet FAQ du widget regroupe toutes les réponses."
     )

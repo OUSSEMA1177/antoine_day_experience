@@ -474,10 +474,18 @@ ALL_DESTINATIONS_HINTS = (
     "d autres destination", "d'autres destination", "autres pays", "autre pays",
 )
 
+# Hints en MOT ENTIER uniquement — « ville » ∈ « seville » ne doit PAS matcher
 COUNTRY_QUERY_HINTS = (
     "avez", "avons", "catalogue", "destination", "lieu", "lieux", "place", "places",
     "ville", "villes", "quoi", "quel", "quelle", "que", "autre", "autres", "disponib",
     "proposez", "propose", "offrez", "couvre", "couvrez", "uniquement", "seulement",
+)
+
+_COUNTRY_HINT_WORD_RE = re.compile(
+    r"\b(?:"
+    + "|".join(re.escape(h) for h in COUNTRY_QUERY_HINTS)
+    + r")\b",
+    re.I,
 )
 
 CATALOG_QUESTION_RE = re.compile(
@@ -779,9 +787,14 @@ def detect_all_destinations_query(message: str) -> bool:
 
 
 def _has_catalog_question_hint(message: str, lower: str) -> bool:
+    """True si le message ressemble à une question catalogue (pas un nom de ville).
+
+    Mot entier obligatoire : « Séville » ne doit pas matcher le hint « ville ».
+    """
     if "?" in message:
         return True
-    if any(h in lower for h in COUNTRY_QUERY_HINTS):
+    # lower est déjà normalisé (sans accents) — matcher aussi sur message brut
+    if _COUNTRY_HINT_WORD_RE.search(lower) or _COUNTRY_HINT_WORD_RE.search(message):
         return True
     return bool(CATALOG_QUESTION_RE.search(message))
 

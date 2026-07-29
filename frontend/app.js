@@ -259,13 +259,39 @@ dockToggleEl.addEventListener("click", () => {
   dockToggleEl.setAttribute("aria-expanded", collapsed ? "false" : "true");
 });
 
+function escapeHtml(text) {
+  return String(text)
+    .replace(/&/g, "&amp;")
+    .replace(/</g, "&lt;")
+    .replace(/>/g, "&gt;")
+    .replace(/"/g, "&quot;");
+}
+
+/** Affiche le message bot : liens cliquables, sans gras markdown **. */
+function formatBotHtml(text) {
+  let html = escapeHtml(text || "");
+  // Enlever **gras**
+  html = html.replace(/\*\*([^*]+)\*\*/g, "$1");
+  html = html.replace(/\*\*/g, "");
+  // URLs → liens (nouvel onglet)
+  html = html.replace(
+    /(https?:\/\/[^\s<]+)/g,
+    '<a href="$1" target="_blank" rel="noopener noreferrer">$1</a>'
+  );
+  return html;
+}
+
 function appendMessage(text, role, usage = null) {
   const div = document.createElement("div");
   div.className = `message ${role}`;
 
   const body = document.createElement("div");
   body.className = "message-body";
-  body.textContent = text;
+  if (role === "bot") {
+    body.innerHTML = formatBotHtml(text);
+  } else {
+    body.textContent = text;
+  }
   div.appendChild(body);
 
   if (role === "bot" && usage) {

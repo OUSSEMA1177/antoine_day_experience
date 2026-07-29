@@ -575,6 +575,16 @@ body {
   word-break: break-word;
 }
 
+.message-body a {
+  color: var(--brand, #c45c26);
+  text-decoration: underline;
+  word-break: break-all;
+}
+
+.message-body a:hover {
+  opacity: 0.85;
+}
+
 .message.bot {
   align-self: flex-start;
   background: #fff;

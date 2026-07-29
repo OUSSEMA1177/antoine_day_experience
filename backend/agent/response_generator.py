@@ -33,6 +33,9 @@ def sanitize_response(text: str) -> str:
     cleaned = text.strip()
     for phrase in FORBIDDEN_PHRASES:
         cleaned = re.sub(re.escape(phrase), "", cleaned, flags=re.IGNORECASE)
+    # Style pro : pas de gras markdown **texte**
+    cleaned = re.sub(r"\*\*([^*]+)\*\*", r"\1", cleaned)
+    cleaned = cleaned.replace("**", "")
     cleaned = re.sub(r"\n{3,}", "\n\n", cleaned)
     cleaned = re.sub(r"\s{2,}", " ", cleaned)
     return cleaned.strip()

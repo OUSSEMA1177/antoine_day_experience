@@ -36,6 +36,40 @@ CATALOG_RULES = (
     "INTERDIT de proposer des activités dans d'autres pays ou villes."
 )
 
+# Fiche produit B2B Day Experience
+B2B_ACTIVITY_URL_TEMPLATE = (
+    "https://b2b.day-experience.com/produit.cfm?idActivity={id}"
+)
+
+
+def activity_product_url(activity_id: str | int | None) -> str:
+    """URL fiche produit B2B pour un id catalogue."""
+    aid = str(activity_id or "").strip()
+    if not aid:
+        return ""
+    return B2B_ACTIVITY_URL_TEMPLATE.format(id=aid)
+
+
+def format_activity_line(
+    index: int,
+    *,
+    titre: str,
+    prix_net: str = "",
+    zone: str = "",
+    activity_id: str | int | None = "",
+) -> str:
+    """Ligne liste pro : titre + prix + lien fiche (sans markdown **)."""
+    title = (titre or "?").strip() or "?"
+    prix = (prix_net or "?").strip() or "?"
+    zone_txt = (zone or "").strip()
+    mid = f" — {zone_txt}" if zone_txt else ""
+    line = f"{index}. {title}{mid} — {prix} € (net)"
+    url = activity_product_url(activity_id)
+    if url:
+        line = f"{line}\n   {url}"
+    return line
+
+
 ORDER_REF_RE = re.compile(r"\b([A-Z]{2,}-\d{3,})\b", re.IGNORECASE)
 
 
@@ -68,8 +102,9 @@ class CatalogSearchResult:
     def format_activity(self, row: dict[str, str]) -> dict[str, str]:
         dest = data_loader.get_destination_by_id(row.get("destination_id", ""))
         zone = (dest or {}).get("nom", "") or row.get("destination_id", "")
+        aid = row.get("id", "")
         return {
-            "id": row.get("id", ""),
+            "id": aid,
             "titre": row.get("titre", ""),
             "zone_catalogue": zone,
             "prix_net": row.get("prix", ""),
@@ -77,6 +112,7 @@ class CatalogSearchResult:
             "duree": row.get("duree", ""),
             "langues": row.get("langues", ""),
             "profil_cible": row.get("profil_cible", "") or "general",
+            "url": activity_product_url(aid),
         }
 
     def to_prompt_block(self, note: str = "", *, limit: int | None = None) -> str:
@@ -330,10 +366,15 @@ def build_theme_region_reply(
     lines: list[str] = []
     for i, row in enumerate(result.activities[:6], start=1):
         item = result.format_activity(row)
-        prix = item.get("prix_net") or "?"
-        zone = item.get("zone_catalogue") or ""
-        titre = item.get("titre") or ""
-        lines.append(f"{i}. **{titre}** — {zone} — {prix} € (net)")
+        lines.append(
+            format_activity_line(
+                i,
+                titre=item.get("titre") or "",
+                prix_net=item.get("prix_net") or "",
+                zone=item.get("zone_catalogue") or "",
+                activity_id=item.get("id") or "",
+            )
+        )
 
     zones = sorted(
         {
@@ -373,10 +414,15 @@ def build_region_activities_reply(
             lines: list[str] = []
             for i, row in enumerate(fallback_without_budget.activities[:5], start=1):
                 item = fallback_without_budget.format_activity(row)
-                prix = item.get("prix_net") or "?"
-                zone = item.get("zone_catalogue") or ""
-                titre = item.get("titre") or ""
-                lines.append(f"{i}. **{titre}** — {zone} — {prix} € (net)")
+                lines.append(
+                    format_activity_line(
+                        i,
+                        titre=item.get("titre") or "",
+                        prix_net=item.get("prix_net") or "",
+                        zone=item.get("zone_catalogue") or "",
+                        activity_id=item.get("id") or "",
+                    )
+                )
             body = "\n".join(lines)
             return (
                 f"Aucune activité à ≤ {int(budget_max)} € net pour {label}.{note}\n"
@@ -398,10 +444,15 @@ def build_region_activities_reply(
     lines = []
     for i, row in enumerate(result.activities[:6], start=1):
         item = result.format_activity(row)
-        prix = item.get("prix_net") or "?"
-        zone = item.get("zone_catalogue") or ""
-        titre = item.get("titre") or ""
-        lines.append(f"{i}. **{titre}** — {zone} — {prix} € (net)")
+        lines.append(
+            format_activity_line(
+                i,
+                titre=item.get("titre") or "",
+                prix_net=item.get("prix_net") or "",
+                zone=item.get("zone_catalogue") or "",
+                activity_id=item.get("id") or "",
+            )
+        )
 
     body = "\n".join(lines)
     return (

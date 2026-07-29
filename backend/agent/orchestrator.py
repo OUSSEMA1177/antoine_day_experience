@@ -69,6 +69,7 @@ from search.catalog_search import (
     CatalogSearchResult,
     append_order_and_faq,
     context_has_activities,
+    format_activity_line,
     search_from_context,
 )
 from search.geo import (
@@ -311,7 +312,7 @@ class Orchestrator:
             if "générer le devis" not in reply.casefold():
                 reply = (
                     f"{reply}\n\n"
-                    "Cliquez sur le bouton **Générer le devis PDF** ci-dessous pour télécharger votre devis White Label."
+                    "Cliquez sur le bouton Générer le devis PDF ci-dessous pour télécharger votre devis White Label."
                 )
         return reply
 
@@ -519,6 +520,8 @@ class Orchestrator:
         )
         from agent.destination_confirm import remember_city_offer
 
+        # Nouvelle offre pays → plus d'ask devis en cours
+        memory_manager.clear_slot(session_id, "awaiting_quote_confirm")
         remember_city_offer(session_id, cities, region_key=region_key)
         conversation_manager.add_turn(session_id, user_message, reply)
         return reply, tools_used, self._quote_meta(session_id, quote_info)
@@ -615,6 +618,7 @@ class Orchestrator:
         """« oui » / ville après offre pays — active destination + liste activités."""
         from agent.destination_confirm import (
             clear_pending_city,
+            is_affirmative_short,
             is_negative_short,
             resolve_pending_city_choice,
         )
@@ -629,8 +633,12 @@ class Orchestrator:
         if not awaiting:
             return None
 
-        # Ne pas voler un vrai oui devis
-        if str(slots.get("awaiting_quote_confirm", "") or "").strip():
+        # Pendant ask devis : un « oui » pur = confirmation devis, pas city confirm.
+        # Mais un nom de ville (Séville, Barcelone…) ou un indice = changement explicite.
+        awaiting_quote = bool(
+            str(slots.get("awaiting_quote_confirm", "") or "").strip()
+        )
+        if awaiting_quote and is_affirmative_short(user_message):
             return None
 
         if is_negative_short(user_message):
@@ -645,6 +653,10 @@ class Orchestrator:
         city = resolve_pending_city_choice(session_id, user_message)
         if not city:
             return None
+
+        # Changement de ville → abandonner l'ancien ask devis
+        if awaiting_quote:
+            memory_manager.clear_slot(session_id, "awaiting_quote_confirm")
 
         resolved = activate_catalog_destination(session_id, city)
         if not resolved:
@@ -678,8 +690,12 @@ class Orchestrator:
             for i, row in enumerate(result.activities[:6], start=1):
                 item = result.format_activity(row)
                 lines.append(
-                    f"{i}. **{item.get('titre') or '?'}** — "
-                    f"{item.get('prix_net') or '?'} € (net)"
+                    format_activity_line(
+                        i,
+                        titre=item.get("titre") or "",
+                        prix_net=item.get("prix_net") or "",
+                        activity_id=item.get("id") or "",
+                    )
                 )
             prefix = f"{note} " if note else ""
             reply = (
@@ -805,7 +821,12 @@ class Orchestrator:
             for i, row in enumerate(pool[:6], start=1):
                 item = result.format_activity(row)
                 lines.append(
-                    f"{i}. **{item.get('titre') or '?'}** — {item.get('prix_net') or '?'} € (net)"
+                    format_activity_line(
+                        i,
+                        titre=item.get("titre") or "",
+                        prix_net=item.get("prix_net") or "",
+                        activity_id=item.get("id") or "",
+                    )
                 )
             reply = (
                 f"D'accord, voici d'autres options à {dest} :\n"
@@ -889,7 +910,12 @@ class Orchestrator:
         for i, row in enumerate(result.activities[:6], start=1):
             item = result.format_activity(row)
             lines.append(
-                f"{i}. **{item.get('titre') or '?'}** — {item.get('prix_net') or '?'} € (net)"
+                format_activity_line(
+                    i,
+                    titre=item.get("titre") or "",
+                    prix_net=item.get("prix_net") or "",
+                    activity_id=item.get("id") or "",
+                )
             )
         selected = str(slots.get("activites_selectionnees", "") or "").strip()
         keep = (
@@ -1154,7 +1180,7 @@ class Orchestrator:
                 return auto, tools_used, self._quote_meta(session_id, quote_info)
             reply = (
                 f"Parfait. Votre sélection ({count} activité(s)) : {titles}. "
-                "Cliquez sur le bouton **Générer le devis PDF** ci-dessous."
+                "Cliquez sur le bouton Générer le devis PDF ci-dessous."
             )
         else:
             missing = ", ".join(m for m in state["missing"] if m != "confirmation_devis")
@@ -1281,7 +1307,12 @@ class Orchestrator:
                 for i, row in enumerate(result.activities[:6], start=1):
                     item = result.format_activity(row)
                     lines.append(
-                        f"{i}. **{item['titre']}** — {item.get('prix_net') or '?'} € (net)"
+                        format_activity_line(
+                            i,
+                            titre=item.get("titre") or "",
+                            prix_net=item.get("prix_net") or "",
+                            activity_id=item.get("id") or "",
+                        )
                     )
                 reply = (
                     f"Budget élargi pour {dest}. Voici des activités du catalogue :\n"
@@ -1387,8 +1418,14 @@ class Orchestrator:
                 lines = []
                 for i, row in enumerate(result.activities[:6], start=1):
                     item = result.format_activity(row)
-                    prix = item.get("prix_net") or "?"
-                    lines.append(f"{i}. **{item['titre']}** — {prix} € (net)")
+                    lines.append(
+                        format_activity_line(
+                            i,
+                            titre=item.get("titre") or "",
+                            prix_net=item.get("prix_net") or "",
+                            activity_id=item.get("id") or "",
+                        )
+                    )
                 budget_txt = f" (≤ {int(budget_max)} €)" if budget_max else ""
                 reply = (
                     f"Voici des activités à {dest}{budget_txt} :\n"
