@@ -162,3 +162,74 @@ uvicorn main:app --host 0.0.0.0 --port 8000
 ## Licence / contexte
 
 Prototype MVP Stage — usage interne Day Experience / démo partenaires.
+
+
+
+## Roadmap prod (à prévoir après le MVP)
+
+Le code actuel est une **démo / staging**. Pour une mise en production sur le B2B Day Experience, ces chantiers restent à faire.
+
+### 1. Auth (accès au chatbot)
+
+| Aujourd’hui | Prod |
+|-------------|------|
+| Pas d’auth : toute URL peut appeler `POST /chat` | Login B2B (SSO / cookie session / JWT) |
+| Ouverture publique | Chat réservé aux agences connectées |
+| — | Rate limit messages / session / IP |
+
+Idéal : widget injecté **dans** `b2b.day-experience.com` — l’agence est déjà loguée, identité prise depuis **leur** session.
+
+### 2. Remplacer `?partner_id=`
+
+| Aujourd’hui | Prod |
+|-------------|------|
+| White label via `?partner_id=1` / body + `partners.csv` | ID agence depuis la **session B2B authentifiée** |
+| Spoofable (n’importe qui change l’id dans l’URL) | Lookup partenaires via API / table Day Experience |
+| Greeting local | Nom + logo depuis le back-office partenaire |
+
+Le slot `partner_id` peut rester en mémoire session, mais la **source de vérité** ne doit plus être l’URL.
+
+### 3. Remplacer les CSV par base / API
+
+| CSV MVP | Remplacement |
+|---------|----------------|
+| `activities.csv` | PostgreSQL **ou** API catalogue Day Experience (prix live, dispo, dates) |
+| `destinations.csv` | Même source catalogue |
+| `partners.csv` | API / table partenaires |
+| `faq.csv` | CMS / table FAQ (CSV acceptable un temps) |
+| `orders.csv` | API commandes réelle |
+
+Ne pas réécrire l’agent d’un coup : garder `catalog_search` / `data_loader` comme couche, remplacer seulement l’implémentation derrière (CSV → SQL → API).
+
+Ordre conseillé : (1) Postgres miroir catalogue → (2) API live prix/dates → (3) panier / devis sur mesure.
+
+### 4. Autres chantiers liés
+
+| Sujet | Aujourd’hui | À faire |
+|-------|-------------|---------|
+| Sessions | RAM (`session_store`) | Redis / DB |
+| Panier B2B | Non synchronisé | API panier ou widget same-domain |
+| Devis | PDF local | Formulaire « Devis sur mesure » / ticket API |
+| Prix | Fixe CSV | Prix selon date (fiche produit / API) |
+| CORS / domaine | localhost | Domaine B2B + HTTPS |
+| Monitoring | Logs console | Alertes + suivi coûts LLM |
+
+### 5. Phases recommandées
+
+```
+Phase 1 — Sécurité
+  Auth B2B + supprimer partner_id URL spoofable
+
+Phase 2 — Données
+  data_loader → PostgreSQL (ou API catalogue)
+  Sessions → Redis
+
+Phase 3 — Métier B2B
+  Liens fiches produit (déjà en MVP)
+  Sync / API panier + devis sur mesure
+  Prix par date
+
+Phase 4 — Intégration
+  Widget dans le site B2B (plus la démo localhost seule)
+```
+
