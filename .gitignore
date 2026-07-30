@@ -12,6 +12,9 @@ backend/data/_*.html
 backend/data/.scrape_checkpoint/
 *.pdf
 
+# Logs chatbot (JSONL) — garder le dossier + README
+backend/logs/*.jsonl
+
 # Sources import (hors catalogue CSV MVP)
 *.xlsx
 *.xls

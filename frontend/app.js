@@ -2,6 +2,21 @@ const API_BASE = window.location.origin.includes("8000")
   ? window.location.origin
   : "http://localhost:8000";
 
+/** Accueil par défaut (aligné sur partner_context.build_greeting_reply) */
+const DEFAULT_GREETING =
+  "Bonjour !\n\n" +
+  "Je vous aide à trouver des activités catalogue et à préparer un devis.\n\n" +
+  "Pour de meilleures réponses, précisez de préférence :\n" +
+  "• une destination ou un pays (ex. Séville, Espagne, Afrique du Sud)\n" +
+  "• le profil (couple, famille, groupe) et le budget si connu\n" +
+  "• un thème (plage, culture, gastronomie…) ou des numéros (ex. 1 et 3)\n\n" +
+  "Astuces :\n" +
+  "• « liste des destinations » pour voir le catalogue\n" +
+  "• cliquez la flèche → à côté de chaque activité pour ouvrir la fiche B2B\n" +
+  "• « autre option » si la liste ne convient pas\n" +
+  "• « oui » ou « le devis » pour valider la sélection\n\n" +
+  "Où va votre client ?";
+
 const chatEl = document.getElementById("chat");
 const formEl = document.getElementById("chat-form");
 const inputEl = document.getElementById("message-input");
@@ -233,8 +248,7 @@ async function startNewSession() {
   div.className = "message bot";
   const body = document.createElement("div");
   body.className = "message-body";
-  body.textContent =
-    "Bonjour ! Votre client a choisi sa destination ? Dites-moi où il va — je vous montre ce qu'il peut y vivre.";
+  body.textContent = DEFAULT_GREETING;
   div.appendChild(body);
   chatEl.appendChild(div);
   if (quoteGenerateBtn) quoteGenerateBtn.disabled = true;
@@ -267,17 +281,23 @@ function escapeHtml(text) {
     .replace(/"/g, "&quot;");
 }
 
-/** Affiche le message bot : liens cliquables, sans gras markdown **. */
+/** Affiche le message bot : flèches activité, liens cliquables, sans gras **. */
 function formatBotHtml(text) {
   let html = escapeHtml(text || "");
   // Enlever **gras**
   html = html.replace(/\*\*([^*]+)\*\*/g, "$1");
   html = html.replace(/\*\*/g, "");
-  // URLs → liens (nouvel onglet)
+  // Ligne activité + URL fiche → titre + flèche cliquable (pas d'URL visible)
   html = html.replace(
-    /(https?:\/\/[^\s<]+)/g,
-    '<a href="$1" target="_blank" rel="noopener noreferrer">$1</a>'
+    /(\d+\.\s[^\n]+)\n\s*(https?:\/\/[^\s<]*produit\.cfm\?idActivity=\d+)/g,
+    '$1 <a class="activity-arrow" href="$2" target="_blank" rel="noopener noreferrer" title="Voir la fiche produit" aria-label="Voir la fiche produit">→</a>'
   );
+  // Autres URLs → liens (sans retoucher celles déjà dans href="...")
+  html = html.replace(/(?:https?:\/\/[^\s<]+)/g, (url, offset, full) => {
+    const before = full.slice(Math.max(0, offset - 6), offset);
+    if (before === 'href="' || before === "href='") return url;
+    return `<a href="${url}" target="_blank" rel="noopener noreferrer">${url}</a>`;
+  });
   return html;
 }
 
@@ -494,7 +514,11 @@ async function initGreeting() {
     if (res.ok) {
       const data = await res.json();
       if (data.greeting_message) {
-        firstBot.textContent = data.greeting_message;
+        if (typeof formatBotHtml === "function") {
+          firstBot.innerHTML = formatBotHtml(data.greeting_message);
+        } else {
+          firstBot.textContent = data.greeting_message;
+        }
       }
     }
   } catch {

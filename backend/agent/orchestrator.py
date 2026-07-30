@@ -19,6 +19,14 @@ from agent.llm_usage import (
     reset_llm_usage_tracking,
     start_llm_usage_tracking,
 )
+from agent.chat_logger import (
+    finish_chat_turn,
+    mark_dialog,
+    mark_nlu,
+    reset_chat_turn,
+    start_chat_turn,
+    update_turn,
+)
 from agent.destination_policy import (
     activate_catalog_destination,
     activate_unavailable_destination,
@@ -323,12 +331,14 @@ class Orchestrator:
             return empty_nlu()
         if not should_run_nlu(user_message):
             return empty_nlu()
-        return extract_nlu(
+        nlu = extract_nlu(
             user_message,
             session_id=session_id,
             litellm_kwargs=self._litellm_kwargs(),
             log_usage=bool(getattr(self.settings, "llm_log_usage", True) is True),
         )
+        mark_nlu(getattr(nlu, "intent", None))
+        return nlu
 
     def _apply_nlu_side_effects(self, session_id: str, nlu: NLUExtract) -> None:
         apply_nlu_to_session(session_id, nlu)
@@ -1234,18 +1244,34 @@ class Orchestrator:
 
     def chat(self, session_id: str, user_message: str) -> tuple[str, list[str], dict[str, str | None]]:
         usage_token = start_llm_usage_tracking()
+        slots0 = memory_manager.get_slots(session_id)
+        partner_id = str(slots0.get("partner_id", "") or "").strip()
+        turn_token = start_chat_turn(
+            session_id=session_id,
+            user_message=user_message,
+            partner_id=partner_id,
+        )
         try:
             reply, tools_used, meta = self._chat(session_id, user_message)
             usage = current_llm_usage()
-            logger.info(
-                "chat.out session=%s tools=%s llm=%s tokens=%s",
-                session_id,
-                ",".join(tools_used) or "-",
-                usage.get("llm_model") if usage.get("llm_used") else "0-token",
-                usage.get("total_tokens", 0),
+            finish_chat_turn(
+                tools_used=tools_used,
+                reply=reply,
+                meta=meta if isinstance(meta, dict) else {},
+                usage=usage,
             )
             return reply, tools_used, meta
+        except Exception as exc:
+            finish_chat_turn(
+                tools_used=[],
+                reply="",
+                meta={},
+                usage=current_llm_usage(),
+                error=str(exc)[:200],
+            )
+            raise
         finally:
+            reset_chat_turn(turn_token)
             reset_llm_usage_tracking(usage_token)
 
     def _try_raise_budget_reply(
@@ -1470,6 +1496,15 @@ class Orchestrator:
         from agent.conversation_state import ConvState, classify_intent, derive_state
 
         conv_state = derive_state(slots_now)
+        intent_now = classify_intent(user_message)
+        update_turn(
+            conv_state=conv_state.value,
+            route_kind=route.kind.value,
+            route_reason=route.reason,
+            intent=intent_now.value,
+            partner_id=str(slots_now.get("partner_id", "") or "").strip(),
+            destination=str(slots_now.get("destination", "") or "").strip(),
+        )
         # Trace de routage : une ligne par message pour diagnostiquer les misroutes
         logger.info(
             "chat.in session=%s state=%s route=%s/%s intent=%s msg=%r",
@@ -1477,7 +1512,7 @@ class Orchestrator:
             conv_state.value,
             route.kind.value,
             route.reason,
-            classify_intent(user_message).value,
+            intent_now.value,
             user_message[:80],
         )
 
@@ -1926,6 +1961,7 @@ class Orchestrator:
 
         quote_meta = self._quote_meta(session_id)
 
+        mark_dialog()
         messages: list[dict] = [{"role": "system", "content": system_content}]
         messages.extend(
             conversation_manager.get_history(

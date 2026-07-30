@@ -22,14 +22,16 @@ L'agent doit :
 
 ## Phase MVP (Stage) — Périmètre
 
-| Inclus MVP | Reporté phase 2 |
-|------------|-----------------|
-| Dialogue naturel | Base de données relationnelle |
-| Recherche activités (CSV) | API internes Day Experience |
+| Inclus MVP | Reporté phase 2 / prod |
+|------------|------------------------|
+| Dialogue naturel + NLU + chemins 0 token | Base de données relationnelle (Postgres) |
+| Recherche activités (CSV dans `backend/data/`) | API internes Day Experience |
 | Tunnel découverte adaptatif | RAG / base vectorielle |
-| Mémoire conversationnelle | Voucher / facture en temps réel |
-| Génération devis PDF | WhatsApp / Teams |
-| Page Web de démo | Intégration plateforme officielle |
+| Mémoire conversationnelle (RAM) | Redis / sessions multi-instance |
+| Liens fiches B2B (`produit.cfm?idActivity=`) | Auth B2B (remplacer `?partner_id=`) |
+| Génération devis PDF White Label | Sync panier / « Devis sur mesure » (API IT) |
+| Widget chat démo + guide d’usage | Embed dans `index` B2B réel |
+| Logs JSONL (`backend/logs/`) | WhatsApp / Teams / BI Postgres |
 
 ---
 
@@ -44,14 +46,15 @@ FastAPI (routes/)
     ↓
 Orchestrator (agent/orchestrator.py)
     ↓
+ normalize + intent_router + conversation_state
+    ↓
 ┌────────────────────┬──────────────────────┐
 │ Chemins déterministes│ Chemin LLM (Claude)   │
 │ (0 token, catalogue) │ (NLU + dialogue)      │
 │ • pays / continent   │ • envies floues        │
 │ • thème + région     │ • reformulations       │
-│ • support → e-mail   │ • « autre activité »   │
-│ • ville hors catal.  │ • présentation activités│
-│ • ask dest/profil    │                        │
+│ • support / FAQ      │ • présentation activités│
+│ • city confirm/pick  │                        │
 │ • sélection / devis  │                        │
 └────────────────────┴──────────────────────┘
     ↓
@@ -60,7 +63,7 @@ Tools (source de vérité catalogue)
     ↓
 Memory + Quote State (sélection EXPLICITE seulement)
     ↓
-Response (LLM formule à partir du JSON tool — pas d'invention)
+Response + chat_logger (JSONL path/tokens) + liens B2B activité
 ```
 
 ### Principe d'architecture (important)
@@ -376,10 +379,15 @@ uvicorn main:app --reload
 - [x] **`support_policy.py`** — escalade e-mail 0 token
 - [x] **`themes.py`** — taxonomie thèmes B2B + recherche région/thème
 - [x] **`destination_policy.py`** — hors catalogue strict, garde-fous destination
+- [x] **`conversation_state.py`** — `ConvState` + `classify_intent` (priorité unique)
+- [x] **`intent_router.py`** — matrice fermée avant NLU / dialogue
+- [x] **`destination_confirm.py`** — city confirm / city pick (Espagne → Séville…)
+- [x] **`chat_logger.py`** — JSONL stats (`path`, tokens, tools, latency)
 - [x] Chemins 0 token dans orchestrator (continent, thème+région, tunnel, confirmation)
-- [x] `agent/partner_context.py` — résolution agence White Label (`partner_id`, `nom_agence`)
+- [x] `agent/partner_context.py` — White Label + `GREETING_USAGE_GUIDE`
 - [x] `ChatResponse` enrichi : `quote_ready`, `quote_activities`, `destination`, `nom_agence`
-- [x] Tests : `test_chat.py`, `test_tools.py`, `test_catalog_search.py`, `test_agent.py`, `test_conversation_scenarios.py`, `test_quote_state.py`, `test_zanzibar_search.py`
+- [x] Liens activités B2B dans les listes (`format_activity_line`)
+- [x] Tests : chat, tools, catalog, agent, scénarios, quote, golden, chat_logger, activity_links…
 
 ```bash
 # .env à la racine du projet
@@ -393,27 +401,22 @@ uvicorn main:app --reload
 # Chat : http://127.0.0.1:8000/  |  Swagger : http://127.0.0.1:8000/docs
 ```
 
-**Flux agent (actuel — juillet 2026)** :
+**Flux agent (actuel — 30/07/2026)** :
 
 1. `POST /chat` (+ `partner_id` optionnel → `sync_partner_from_id`)
-2. `context_manager.sync_slots_from_message` — regex profil/envies/groupe (**0 token**)
-3. **Chemins déterministes 0 token** (`orchestrator`) :
-   - continent/pays → `geo.list_catalog_destinations_for_region`
-   - thème + région → `themes` + `catalog_search.build_theme_region_reply`
-   - retrait post-devis → `quote_revision`
-   - **sélection / oui devis purs** → `is_pure_selection_or_confirm_message` + `quote_state`
-   - support → `support_policy` (e-mail, pas conseiller chat)
-   - qualification tunnel → ask destination / profil / envies (réponses templates)
-   - hors catalogue → `destination_policy`
-4. **NLU structuré** (`nlu_extractor`) si `LLM_NLU_EXTRACT=true` — langage flou / mixte → JSON
-5. Re-passage 0 token si NLU détecte continent/pays/thème sans destination ville
-6. **Python applique le JSON NLU** : `_try_activity_confirmation(nlu=…)` (select / append / ask thème / devis)
-7. `intent_detector` (regex) + enrichissement `nlu.intent` → `planner.plan_next`
-8. `catalog_search.search_from_context` + `ranking` (soft profil, thèmes mot entier)
-9. **Dialogue LLM** seulement si étapes 3–8 n’ont pas déjà répondu :
-   - system + mémoire + `NLU STRUCTURÉ` + JSON catalogue + tools natifs (Claude/GPT)
-10. `response_generator.sanitize_response` + `record_discussed_activities_from_text`
-11. Retour `ChatResponse` (`quote_ready`, `quote_url`, `llm_used`, tokens)
+2. `normalize_message` + `derive_state` / `classify_intent` + log `chat.in`
+3. `context_manager.sync_slots_from_message` — regex profil/envies/groupe (**0 token**)
+4. **`intent_router`** + chemins déterministes 0 token :
+   - continent/pays → city confirm/pick ou destinations région
+   - thème + région → `themes` + `catalog_search`
+   - FAQ / support e-mail / sélection / oui devis / autre option
+   - hors catalogue (whitelist) → `destination_policy`
+5. **NLU structuré** (`nlu_extractor`) si besoin — langage flou / mixte → JSON (+ `etat_conversation`)
+6. **Python applique le JSON NLU** : sélection / append / devis
+7. `intent_detector` + `planner.plan_next` + `catalog_search` / `ranking`
+8. **Dialogue LLM** seulement si les étapes précédentes n’ont pas déjà répondu
+9. `sanitize_response` (sans `**`) + liens B2B + `chat_logger` (`path` / tokens)
+10. Retour `ChatResponse` (`quote_ready`, `quote_url`, `llm_used`, tokens)
 
 **Deux appels Claude possibles par message** : (1) NLU extract ~150–400 tokens, (2) dialogue ~500–3000 tokens. Beaucoup de messages = **0 token** (badge « Réponse catalogue »).
 
@@ -516,8 +519,11 @@ curl -X POST http://127.0.0.1:8000/quote \
 - [x] Anti-simulation : filtre réponses « devis simulé / e-mail » + activités ancrées JSON
 - [x] Landing + widget chat flottant style Day Experience (popup)
 - [x] Dock dev : badge tokens LLM (`llm_used`, tokens) + panneau devis QA
+- [x] Accueil = greeting + **mini-guide d’usage** (`partner_context.build_greeting_reply` / `GREETING_USAGE_GUIDE`)
+- [x] Listes activités : **liens B2B** `produit.cfm?idActivity=…` + rendu cliquable frontend (sans markdown `**`)
 - [ ] Affichage des activités recommandées dans le chat (cards structurées, pas seulement texte)
 - [ ] Design responsive (`@media`), charte graphique Day Experience officielle
+- [ ] Embed widget dans le vrai `index` B2B (snippet + `API_BASE` + CORS) — phase intégration IT
 
 ---
 
@@ -550,7 +556,8 @@ curl -X POST http://127.0.0.1:8000/quote \
 - [x] **`support_policy.py`** — réponse **0 token** orientant vers e-mail (`SUPPORT_EMAIL`), pas de « conseiller dans le chat »
 - [x] Produit hors catalogue → message explicite + suggestion escalade (ex. Corse Saleccia)
 - [x] Tests `test_support_escalation.py`
-- [ ] Log des escalades (fichier ou table) — reporté phase 2
+- [x] Logs structurés chat (path / tokens / tools) — `agent/chat_logger.py` → `backend/logs/chat_*.jsonl` (couvre aussi support/FAQ/devis dans le flux)
+- [ ] Table Postgres / export BI des événements — reporté phase 2
 
 ---
 
@@ -565,20 +572,27 @@ curl -X POST http://127.0.0.1:8000/quote \
 - [x] Génération PDF complète — étape 6 (`test_quote.py`, `test_quote_state.py`)
 - [x] Escalade support e-mail — `test_support_escalation.py`
 - [x] Architecture NLU, thèmes, sélection, geo — `test_nlu_extractor`, `test_theme_search`, `test_selection_guards`, `test_destination_policy`, `test_geo_country`
+- [x] Transcripts golden — `test_golden_transcripts.py` (Afrique du Sud, Tokyo)
+- [x] City pick / Séville — `test_destination_confirm.py` (hint `ville` mot entier + stale quote confirm)
+- [x] Liens activités + chat logger — `test_activity_links.py`, `test_chat_logger.py`
 
 **Tests techniques** :
-- [x] pytest — **138+ tests** (architecture NLU, thèmes, sélection, support, geo…)
+- [x] pytest — **235 tests** (architecture NLU, thèmes, sélection, support, geo, golden, logs…)
 - [x] Tests API avec httpx TestClient
 
 ---
 
-### Étape 11 — Déploiement démo
+### Étape 11 — Déploiement démo 🔄 (préparé, hébergement côté manager)
 
 **Tâches** :
-- [ ] Docker Compose (backend + frontend statique) — optionnel
-- [ ] Variables prod dans `.env`
-- [ ] Hébergement page de démo (Render, Railway, VPS…)
-- [ ] README avec instructions complètes
+- [ ] Docker Compose (backend + frontend statique) — **non requis** (choix projet : uvicorn seul)
+- [x] README : install + section **Hébergement sans Docker** + **Roadmap prod**
+- [x] `.env.example` à jour (LLM, NLU, SUPPORT_EMAIL, CORS…)
+- [x] Repo GitHub prêt MVP (`main`) — catalogue CSV inclus ; Excel/scrapes/PDFs gitignorés
+- [x] Logs runtime `backend/logs/` (JSONL, gitignorés) + doc `backend/logs/README.md`
+- [ ] Variables prod réelles sur le serveur (clés, `DEBUG=false`, `CORS_ORIGINS`)
+- [ ] Hébergement page de démo (VPS / Render / Railway…) — **à faire par le manager / IT**
+- [ ] Intégration popup sur le site B2B réel (`index.cfm`) — snippet + API_BASE
 
 ---
 
@@ -594,7 +608,9 @@ Version API : **0.3.0** (`backend/main.py`)
 | GET | `/activities/{id}` | Détail activité |
 | GET | `/destinations` | Liste destinations catalogue |
 | GET | `/partners/{partner_id}` | Infos partenaire + `greeting_message` White Label |
+| GET | `/faq` | Entrées FAQ (`faq.csv`) pour l’onglet widget |
 | GET | `/session/{session_id}/quote-state` | État devis session (activités, `quote_ready`, champs manquants) |
+| DELETE | `/session/{session_id}` | Reset session (bouton **Nouveau**) |
 | POST | `/quote` | Générer devis PDF (IDs activités explicites) |
 | POST | `/quote/from-session` | Générer devis depuis la session (sans LLM) |
 | GET | `/quotes/{filename}` | Télécharger un PDF généré |
@@ -685,12 +701,13 @@ L'architecture (orchestrator, catalog_search, tools, mémoire, quote_state) rest
 4. Mémoire session                   ✅ MVP
 5. Tools (search_catalog unifié)     ✅ MVP
 6. PDF devis                         ✅ MVP
-7. Frontend chat                     🔄 partiel (chat + panneau devis OK, cards chat à faire)
+7. Frontend chat                     🔄 partiel (popup + liens B2B + guide accueil OK ; cards / embed B2B à faire)
 8. Tunnel Antoine (planner)          ✅ MVP
 9. Escalade + edge cases             ✅ MVP
-10. Tests pytest                     ✅ MVP (138+ tests)
-11. Déploiement démo                 ⬜
-12. Architecture NLU + garde-fous    ✅ (NLU JSON, 0 token, thèmes, soft profil, ordinaux, support e-mail)
+10. Tests pytest                     ✅ MVP (235 tests)
+11. Déploiement démo                 🔄 préparé (README + GitHub) — hébergement / embed = IT
+12. Architecture NLU + garde-fous    ✅
+13. Logs stats JSONL                 ✅ (`chat_logger` → `backend/logs/`)
 ```
 
 ### Migration architecture agentique (Sprints 1–4) ✅
@@ -702,11 +719,14 @@ L'architecture (orchestrator, catalog_search, tools, mémoire, quote_state) rest
 | 3 | Fusionner tools → `search_catalog()` | ✅ |
 | 4 | Créer `response_generator` | ✅ |
 | 12 | NLU JSON, chemins 0 token, thèmes, sélection, support e-mail | ✅ |
+| 13 | State machine + intent unique + golden + logs JSONL | ✅ |
 | 5 | PostgreSQL derrière `catalog_search` | ⬜ |
 | 6 | API Day Experience | ⬜ |
 | 7 | RAG / Vector DB | ⬜ |
+| 8 | Redis sessions (remplacer RAM) | ⬜ |
+| 9 | Auth B2B + partner_id depuis session login | ⬜ |
 
-**Prochaine étape suggérée** : **Étape 7 — Frontend cards** (activités structurées dans le chat) ou **Étape 11 — Déploiement démo**.
+**Prochaine étape suggérée** : hébergement serveur (manager) **ou** intégration widget dans le B2B **ou** auth + Redis (prod).
 
 ---
 
@@ -719,38 +739,37 @@ Lors de chaque session de dev, indiquer :
 
 Mettre à jour les `[ ]` → `[x]` dans ce fichier au fur et à mesure.
 
-### État au 16/07/2026
+### État au 30/07/2026
 
 - **Architecture** : **`intent_router`** (matrice fermée) → 0 token → NLU (flou) → Python → dialogue LLM
 - **Principe** : Claude comprend le langage ; Python = vérité catalogue, sélection, devis, escalade
 - **Machine à états** : `agent/conversation_state.py` — `ConvState` unique dérivé des slots (`derive_state`), priorité `quote_confirm > city_confirm > city_pick > add_activity > post_quote > presenting > qualifying` ; `allows_destination_change` interdit tout changement de lieu pendant ask devis / ajout
-- **Lieu inconnu = whitelist** : `detect_unknown_place_request` exige (1) état autorisant un changement de destination, (2) `matches_known_intent` = False (confirmations, sélection, budget, thèmes, pays, support consolidés), (3) toponyme isolé 1–2 tokens ; `activate_unavailable_destination` **non destructif** si destination catalogue + sélection en cours
-- **Classifieur unique** : `conversation_state.classify_intent(text) → Intent` (enum fermé : greeting, support, confirm, select_indices, add_this, select_and_add, other_options, wants_another, reject_remove, qualification, country_region, budget_or_search, theme, unknown) — priorité encodée à UN endroit ; `matches_known_intent` et `should_run_nlu` le consomment
-- **NLU sur l'ambigu** : `should_run_nlu` = skip si intent déterministe / FAQ / lieu hors catalogue isolé, sinon **NLU** (typos, phrases mixtes, questions factuelles) ; le NLU reçoit `etat_conversation` (machine à états) dans la mémoire injectée — `nlu_extract.txt` documente l'interprétation par état
-- **Normalisation entrée** : `normalize_message` (NFC, apostrophes droites, espaces) appliqué une fois en tête de `_chat` — les regex ne gèrent plus les variantes unicode
-- **Anti whack-a-mole** : scénarios dans `test_scenario_router.py` ; nouveau cas = nouveau test, pas un patch isolé
-- **Tests golden** : `test_golden_transcripts.py` rejoue mot pour mot les transcripts réels qui ont cassé (Afrique du Sud : j'ai pas aimé / autre option / typos pays ; Tokyo : les 3 premiers → ouii → devis 3 activités) avec `litellm.completion` mocké → **0 token garanti** sur toute la conversation
-- **Traçabilité routage** : chaque message logue `chat.in session=… state=… route=kind/reason intent=… msg=…` puis `chat.out tools=… llm=…|0-token tokens=…` (INFO, visible console uvicorn) — diagnostic misroute sans debugger
-- **NLU** : skip saluts / pays / sélection / append / autre activité regex / routes 0 token ; utilisé pour langage flou restant
-- **Budget** : extraction `200 euro` ; « augmentez budget » ≠ lieu ; Afrique sous plafond → fallback moins chères
-- **QA** : bouton **Nouveau** (widget) + `DELETE /session/{id}`
-- **FAQ widget** : onglet Chat / FAQ + `GET /faq`
-- **FAQ chat** : `agent/faq_policy.py` — question métier (commission, réservation, annulation…) → meilleure entrée `faq.csv`, 0 token (`faq_lookup`)
-- **City confirm** : `agent/destination_confirm.py` — slots `awaiting_city_confirm` / `awaiting_city_pick` ; « oui » après offre 1 ville → destination + search (plus de re-ask)- **Thèmes** : `search/themes.py` — plage, montagne, sahara, gastronomie… ; recherche région + thème
-- **Profil** : soft boost dans `ranking` (plus de filtre dur)
-- **Sélection** : ordinaux, append multi-listes (`awaiting_add` → indices liste 2 **ajoutent**), « 1 et 6 », « ajouter 6 », « les 3 premiers » = exactement 3 IDs ; cap 4 = plafond devis seulement (ne remplit pas jusqu’à 4)
-- **Confirm devis** : `oui` / `ouii` / `ouais` / `le devis` ; pendant `awaiting_quote_confirm` → jamais traité comme un lieu hors catalogue
-- **Refus liste** : « j'ai pas aimé » / « autre option » → nouvelle liste (exclut déjà proposées), **pas** « sélection vide » ni ask thème add
-- **Afrique du Sud** : typos `afrique de sud` / `sude` → pays (Parc Kruger), **pas** continent Afrique (Le Caire…)
-- **Support** : `support_policy` — e-mail déterministe, 0 token
-- Tools : `search_catalog`, `list_destinations`, détails, commandes, devis, escalade
-- **Devis** : IDs session seulement (`activites_selectionnees`) ; pas de re-fill auto à 4 au « oui » ; `awaiting_quote_confirm` / `awaiting_add_activity`
-- Suivi usage LLM : logs + badge frontend (`llm_used`, tokens)
-- Ton B2B dans `system_prompt.txt` (pas d’emoji, messages courts)
-- White label : `partner_id` → agence + accueil
-- Frontend : popup chat + badge tokens + bouton **Nouveau** — `http://127.0.0.1:8000/?partner_id=1`
-- **226 tests** pytest (+ scénarios routeur + transcripts golden)
-- LLM recommandé : `anthropic/claude-haiku-4-5` (`LLM_MODEL` + `ANTHROPIC_API_KEY`) ; `LLM_NLU_EXTRACT=true`
-- **Diff vs ancien flux** : routeur d’abord ; pas de regex infinie pour le langage métier
-- `policies.csv` : en-têtes seuls (données annulation non disponibles côté B2B)
-- Prochaine évolution catalogue : SQL → API Day Experience → RAG (sans refonte agent)
+- **Lieu inconnu = whitelist** : `detect_unknown_place_request` exige (1) état autorisant un changement de destination, (2) `matches_known_intent` = False, (3) toponyme isolé 1–2 tokens ; `activate_unavailable_destination` **non destructif** si destination catalogue + sélection en cours
+- **Classifieur unique** : `conversation_state.classify_intent(text) → Intent` — priorité à UN endroit ; `matches_known_intent` et `should_run_nlu` le consomment
+- **NLU sur l'ambigu** : skip si intent déterministe / FAQ / lieu hors catalogue ; sinon NLU avec `etat_conversation` dans le prompt
+- **Normalisation entrée** : `normalize_message` en tête de `_chat`
+- **Anti whack-a-mole** : `test_scenario_router.py` + **tests golden** (`test_golden_transcripts.py`)
+- **City pick** : Espagne → Séville / Grenade / « oui Séville » ; hint catalogue en **mot entier** (`ville` ∉ `seville`) ; choix ville prioritaire même si `awaiting_quote_confirm` stale ; clear quote confirm à l’offre pays
+- **Liens activités** : `format_activity_line` + URL `https://b2b.day-experience.com/produit.cfm?idActivity={id}` ; frontend auto-link ; **pas de `**` markdown** (sanitize + FAQ + listes)
+- **Greeting + guide** : `GREETING_USAGE_GUIDE` dans `partner_context.build_greeting_reply` (destination, profil, thèmes, indices, liste destinations, liens B2B, autre option, devis)
+- **Logs stats** : `agent/chat_logger.py` → `backend/logs/chat_YYYY-MM-DD.jsonl` ; champ `path` = `deterministic` | `nlu` | `dialog` | `nlu+dialog` + tokens, tools, destination, quote, latency ; doc `backend/logs/README.md` ; console `chat.event`
+- **Traçabilité** : `chat.in` (state/route/intent) + `chat.event` (path/tokens/…)
+- **Budget** : extraction `200 euro` ; « augmentez budget » ≠ lieu
+- **QA** : bouton **Nouveau** + `DELETE /session/{id}`
+- **FAQ** : onglet widget + `faq_policy` 0 token
+- **City confirm** : `destination_confirm.py` — `awaiting_city_confirm` / `awaiting_city_pick`
+- **Thèmes** : `search/themes.py`
+- **Sélection** : ordinaux, append multi-listes, « les 3 premiers » = exactement 3 IDs
+- **Confirm devis** : `oui` / `ouii` / `le devis` ; jamais lieu pendant `awaiting_quote_confirm`
+- **Refus liste** : « j'ai pas aimé » / « autre option » → nouvelle liste
+- **Afrique du Sud** : typos → pays Parc Kruger, pas continent
+- **Support** : `SUPPORT_EMAIL` via `.env`
+- **Devis** : IDs session seulement ; cap 4 = plafond, pas auto-fill
+- White label : `partner_id` (MVP URL — à remplacer par session B2B en prod)
+- Frontend : popup + liens + guide — `http://127.0.0.1:8000/?partner_id=1`
+- **235 tests** pytest
+- LLM : `anthropic/claude-haiku-4-5` ; `LLM_NLU_EXTRACT=true`
+- **Catalogue MVP** : toujours CSV dans `backend/data/` (volontaire pour démo) ; roadmap = Postgres / API
+- **Hébergement** : sans Docker (uvicorn seul) ; frontend servi par FastAPI ; README roadmap prod (auth, Redis, CSV→DB, panier, embed B2B)
+- `policies.csv` : en-têtes seuls
+- Prochaine évolution : hébergement IT → embed B2B → auth + Redis → SQL/API catalogue

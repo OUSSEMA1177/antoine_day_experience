@@ -46,7 +46,10 @@ def test_inject_catalog_for_results() -> None:
 def test_build_greeting_reply() -> None:
     msg = build_greeting_reply("TUI España Turismo, S.L.U")
     assert "Bonjour TUI España Turismo, S.L.U" in msg
-    assert "destination" in msg.lower()
+    assert "destination" in msg.lower() or "Séville" in msg or "pays" in msg.lower()
+    assert "liste des destinations" in msg.casefold()
+    assert "Où va votre client" in msg
+    assert "**" not in msg
 
 
 def test_sync_partner_from_id() -> None:

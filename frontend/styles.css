@@ -585,6 +585,30 @@ body {
   opacity: 0.85;
 }
 
+.message-body a.activity-arrow {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  margin-left: 0.35rem;
+  padding: 0.05rem 0.35rem;
+  font-size: 1.05em;
+  font-weight: 600;
+  line-height: 1;
+  color: var(--sea, #0c2430);
+  text-decoration: none;
+  word-break: normal;
+  border-radius: 6px;
+  background: rgba(12, 36, 48, 0.06);
+  vertical-align: middle;
+  transition: background 0.15s ease, transform 0.15s ease;
+}
+
+.message-body a.activity-arrow:hover {
+  opacity: 1;
+  background: rgba(12, 36, 48, 0.12);
+  transform: translateX(2px);
+}
+
 .message.bot {
   align-self: flex-start;
   background: #fff;

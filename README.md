@@ -145,6 +145,16 @@ uvicorn main:app --host 0.0.0.0 --port 8000
 
 **Limitations MVP** : sessions en mémoire (perdues au redémarrage), pas d’auth API, pas de sync panier B2B.
 
+## Logs chatbot (stats)
+
+Chaque message écrit une ligne JSON dans `backend/logs/chat_YYYY-MM-DD.jsonl` :
+
+- `path` : `deterministic` (0 token) | `nlu` | `dialog` | `nlu+dialog`
+- tokens, modèle LLM, tools, destination, `quote_ready`, latence, intent / route / état
+
+Doc détaillée : [`backend/logs/README.md`](backend/logs/README.md).  
+Les fichiers `*.jsonl` sont gitignorés (données runtime).
+
 ## Stack
 
 - **Backend** : FastAPI, LiteLLM
@@ -163,7 +173,7 @@ uvicorn main:app --host 0.0.0.0 --port 8000
 
 Prototype MVP Stage — usage interne Day Experience / démo partenaires.
 
-
+---
 
 ## Roadmap prod (à prévoir après le MVP)
 
@@ -232,4 +242,3 @@ Phase 3 — Métier B2B
 Phase 4 — Intégration
   Widget dans le site B2B (plus la démo localhost seule)
 ```
-
