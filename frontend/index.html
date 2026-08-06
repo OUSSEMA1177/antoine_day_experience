@@ -10,23 +10,30 @@
   <link rel="stylesheet" href="styles.css" />
 </head>
 <body>
-  <!-- Backdrop : site Day Experience (démo) -->
   <div class="site">
     <nav class="site-nav">
-      <span class="brand">Day Experience</span>
-      <span class="nav-meta">Espace partenaires · Démo</span>
+      <a class="brand" href="/">Day Experience</a>
+      <div class="nav-links">
+        <a href="/" class="nav-link is-active">Assistant</a>
+        <a href="/logs" class="nav-link">Logs</a>
+        <span class="nav-meta">Espace partenaires · Démo</span>
+      </div>
     </nav>
 
     <section class="hero">
+      <div class="hero-media" aria-hidden="true"></div>
       <div class="hero-copy">
         <p class="hero-kicker">Plateforme B2B</p>
         <h1 class="hero-title">Day Experience</h1>
         <p class="hero-lead">
           Excursions, billets et transferts pour vos clients — devis White Label en quelques échanges.
         </p>
-        <p class="hero-hint">
-          L’assistant partenaire s’ouvre en bas à droite.
-        </p>
+        <div class="hero-actions">
+          <button type="button" id="hero-open-chat" class="hero-cta">
+            Ouvrir l’assistant
+          </button>
+          <a href="/logs" class="hero-secondary">Voir les logs ops →</a>
+        </div>
       </div>
     </section>
 
@@ -35,7 +42,6 @@
     </section>
   </div>
 
-  <!-- Launcher flotant -->
   <button
     type="button"
     id="chat-launcher"
@@ -59,7 +65,6 @@
     </span>
   </button>
 
-  <!-- Widget chat popup -->
   <aside
     id="chat-widget"
     class="chat-widget"
@@ -166,7 +171,6 @@ Où va votre client ?</div>
     </div>
   </aside>
 
-  <!-- Dock test : tokens + devis (conservé pour QA) -->
   <aside class="dev-dock" aria-label="Outils de test">
     <button type="button" id="dock-toggle" class="dock-toggle" aria-expanded="true">
       <span>Outils de test</span>

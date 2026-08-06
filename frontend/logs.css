@@ -1,0 +1,319 @@
+/* Page Logs — mêmes tokens que styles.css (nav, hero-kicker, site-strip). */
+
+body.logs-body {
+  background: var(--sand);
+}
+
+body.logs-body .site {
+  min-height: auto;
+}
+
+/* ——— Bannière ops (façon page B2B : titre + chiffres) ——— */
+.ops-hero {
+  position: relative;
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: 2rem;
+  padding: clamp(2rem, 5vw, 3.5rem) clamp(1.25rem, 4vw, 3rem);
+  color: var(--foam);
+  background:
+    linear-gradient(120deg, rgba(7, 24, 32, 0.88) 0%, rgba(14, 107, 117, 0.72) 55%, rgba(7, 24, 32, 0.7) 100%),
+    linear-gradient(160deg, #0c2430 0%, #134e5a 55%, #1f6f6a 100%);
+  overflow: hidden;
+  animation: rise 0.6s ease-out both;
+}
+
+.ops-hero-copy {
+  position: relative;
+  z-index: 1;
+  max-width: 30rem;
+}
+
+.ops-title {
+  margin: 0.5rem 0 0;
+  font-family: var(--font-display);
+  font-size: clamp(1.9rem, 4vw, 2.6rem);
+  font-weight: 600;
+  letter-spacing: -0.03em;
+  line-height: 1.05;
+}
+
+.ops-lead {
+  margin: 0.85rem 0 0;
+  font-size: 0.98rem;
+  line-height: 1.5;
+  opacity: 0.9;
+  max-width: 30rem;
+}
+
+.ops-stats {
+  position: relative;
+  z-index: 1;
+  display: flex;
+  gap: clamp(1.25rem, 3vw, 2.5rem);
+  flex-wrap: wrap;
+}
+
+.ops-stat {
+  display: flex;
+  flex-direction: column;
+  gap: 0.2rem;
+  min-width: 8rem;
+}
+
+.ops-stat strong {
+  font-family: var(--font-display);
+  font-size: clamp(1.9rem, 3.4vw, 2.5rem);
+  font-weight: 600;
+  letter-spacing: -0.02em;
+}
+
+.ops-stat span {
+  font-size: 0.8rem;
+  letter-spacing: 0.02em;
+  opacity: 0.8;
+}
+
+.ops-stat-accent strong {
+  color: #6ee7b7;
+}
+
+/* ——— Panneau contrôles + KPIs + table (fond clair, cohérent avec le site) ——— */
+.ops-panel {
+  padding: 1.75rem clamp(1.25rem, 4vw, 3rem) 2.5rem;
+  background: var(--foam);
+}
+
+.ops-controls {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: flex-end;
+  justify-content: space-between;
+  gap: 1rem;
+  margin-bottom: 1.35rem;
+}
+
+.ops-controls-left {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.75rem;
+}
+
+.ops-controls label {
+  display: flex;
+  flex-direction: column;
+  gap: 0.3rem;
+  font-size: 0.72rem;
+  font-weight: 600;
+  letter-spacing: 0.05em;
+  text-transform: uppercase;
+  color: var(--mist);
+}
+
+.ops-controls select {
+  min-width: 11rem;
+  padding: 0.6rem 0.75rem;
+  border-radius: 12px;
+  border: 1px solid var(--line);
+  background: #fff;
+  color: var(--ink);
+  font: inherit;
+  font-size: 0.88rem;
+}
+
+.ops-controls select:focus {
+  outline: 2px solid rgba(14, 107, 117, 0.3);
+  outline-offset: 1px;
+  border-color: var(--sea);
+}
+
+.btn-refresh {
+  border: none;
+  border-radius: 999px;
+  padding: 0.7rem 1.25rem;
+  background: var(--sea);
+  color: var(--foam);
+  font: inherit;
+  font-size: 0.88rem;
+  font-weight: 700;
+  cursor: pointer;
+  box-shadow: 0 8px 20px rgba(14, 107, 117, 0.28);
+  transition: transform 0.15s ease, background 0.15s ease, box-shadow 0.15s ease;
+}
+
+.btn-refresh:hover {
+  background: var(--sea-bright);
+  transform: translateY(-1px);
+  box-shadow: 0 10px 24px rgba(14, 107, 117, 0.32);
+}
+
+.kpi-grid {
+  display: grid;
+  grid-template-columns: repeat(6, minmax(0, 1fr));
+  gap: 0.85rem;
+  margin-bottom: 1.5rem;
+  animation: rise 0.55s 0.08s ease-out both;
+}
+
+.kpi {
+  background: #fff;
+  border: 1px solid var(--line);
+  border-radius: 16px;
+  padding: 1rem 1.1rem;
+  min-height: 92px;
+  box-shadow: 0 6px 18px rgba(12, 36, 48, 0.05);
+}
+
+.kpi-label {
+  display: block;
+  font-size: 0.68rem;
+  font-weight: 600;
+  letter-spacing: 0.07em;
+  text-transform: uppercase;
+  color: var(--mist);
+  margin-bottom: 0.5rem;
+}
+
+.kpi strong {
+  font-family: "JetBrains Mono", ui-monospace, monospace;
+  font-size: 1.4rem;
+  font-weight: 600;
+  color: var(--ink);
+  letter-spacing: -0.02em;
+}
+
+.kpi-zero {
+  border-color: rgba(14, 107, 117, 0.25);
+  background: linear-gradient(180deg, rgba(14, 107, 117, 0.06), #fff 70%);
+}
+
+.kpi-zero strong { color: var(--sea); }
+
+.table-wrap {
+  background: #fff;
+  border: 1px solid var(--line);
+  border-radius: 18px;
+  overflow: hidden;
+  box-shadow: 0 10px 28px rgba(12, 36, 48, 0.06);
+  animation: rise 0.55s 0.16s ease-out both;
+}
+
+.table-head {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 1rem;
+  padding: 1.1rem 1.25rem;
+  border-bottom: 1px solid var(--line);
+}
+
+.table-head h2 {
+  margin: 0;
+  font-family: var(--font-display);
+  font-size: 1.05rem;
+  font-weight: 600;
+  color: var(--ink);
+}
+
+.table-meta {
+  font-size: 0.8rem;
+  color: var(--mist);
+  font-family: "JetBrains Mono", ui-monospace, monospace;
+}
+
+.table-scroll {
+  overflow-x: auto;
+  max-height: min(58vh, 600px);
+  overflow-y: auto;
+}
+
+table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 0.85rem;
+}
+
+th {
+  text-align: left;
+  padding: 0.75rem 1rem;
+  font-size: 0.66rem;
+  letter-spacing: 0.07em;
+  text-transform: uppercase;
+  color: var(--mist);
+  background: var(--sand);
+  position: sticky;
+  top: 0;
+  z-index: 1;
+}
+
+td {
+  padding: 0.8rem 1rem;
+  border-top: 1px solid var(--line);
+  vertical-align: top;
+  color: var(--ink-soft);
+}
+
+tbody tr:hover td {
+  background: rgba(14, 107, 117, 0.04);
+}
+
+.empty-row td {
+  text-align: center;
+  color: var(--mist);
+  padding: 2.75rem 1rem;
+}
+
+.mono {
+  font-family: "JetBrains Mono", ui-monospace, monospace;
+  font-size: 0.8rem;
+}
+
+.path-pill {
+  display: inline-flex;
+  align-items: center;
+  padding: 0.22rem 0.6rem;
+  border-radius: 999px;
+  font-family: "JetBrains Mono", ui-monospace, monospace;
+  font-size: 0.72rem;
+  font-weight: 600;
+  white-space: nowrap;
+}
+
+.path-deterministic {
+  color: #0d8f5c;
+  background: rgba(13, 143, 92, 0.12);
+}
+
+.path-nlu,
+.path-dialog,
+.path-nlu-dialog {
+  color: #1f6fb2;
+  background: rgba(31, 111, 178, 0.12);
+}
+
+.preview {
+  color: var(--mist);
+  max-width: 240px;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+@media (max-width: 1080px) {
+  .kpi-grid {
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+  }
+}
+
+@media (max-width: 720px) {
+  .ops-hero {
+    flex-direction: column;
+    align-items: flex-start;
+  }
+
+  .kpi-grid {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+}

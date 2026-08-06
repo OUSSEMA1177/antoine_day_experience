@@ -301,6 +301,22 @@ function formatBotHtml(text) {
   return html;
 }
 
+function appendTyping() {
+  const div = document.createElement("div");
+  div.className = "message bot typing";
+  div.id = "typing-indicator";
+  div.innerHTML =
+    '<div class="typing-dots" aria-label="Antoine écrit"><span></span><span></span><span></span></div>';
+  chatEl.appendChild(div);
+  chatEl.scrollTop = chatEl.scrollHeight;
+  return div;
+}
+
+function removeTyping() {
+  const el = document.getElementById("typing-indicator");
+  if (el) el.remove();
+}
+
 function appendMessage(text, role, usage = null) {
   const div = document.createElement("div");
   div.className = `message ${role}`;
@@ -448,6 +464,8 @@ formEl.addEventListener("submit", async (e) => {
 
   appendMessage(message, "user");
   inputEl.value = "";
+  setWidgetOpen(true);
+  appendTyping();
 
   try {
     const body = {
@@ -464,6 +482,8 @@ formEl.addEventListener("submit", async (e) => {
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify(body),
     });
+
+    removeTyping();
 
     if (!res.ok) {
       const err = await res.json().catch(() => ({}));
@@ -488,6 +508,7 @@ formEl.addEventListener("submit", async (e) => {
       appendQuoteDownload(data.quote_url, data.devis_ref);
     }
   } catch (err) {
+    removeTyping();
     const msg =
       err instanceof Error && err.message
         ? err.message
@@ -496,9 +517,20 @@ formEl.addEventListener("submit", async (e) => {
   }
 });
 
+const heroOpenBtn = document.getElementById("hero-open-chat");
+if (heroOpenBtn) {
+  heroOpenBtn.addEventListener("click", () => {
+    setWidgetOpen(true);
+    setActiveTab("chat");
+  });
+}
 sessionDisplayEl.textContent = getSessionId().slice(0, 8) + "…";
 refreshQuoteState();
 
+// LinkedIn / démo : ?open=1 ouvre le widget au chargement
+if (new URLSearchParams(window.location.search).get("open") === "1") {
+  setWidgetOpen(true);
+}
 async function initGreeting() {
   const partnerId = getPartnerId();
   if (!partnerId) return;

@@ -1,0 +1,129 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Logs — Day Experience</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link href="https://fonts.googleapis.com/css2?family=DM+Sans:ital,opsz,wght@0,9..40,400;0,9..40,500;0,9..40,600;0,9..40,700;1,9..40,400&family=Fraunces:opsz,wght@9..144,500;9..144,600;9..144,700&family=JetBrains+Mono:wght@400;500;600&display=swap" rel="stylesheet" />
+  <link rel="stylesheet" href="styles.css" />
+  <link rel="stylesheet" href="logs.css" />
+</head>
+<body class="logs-body">
+  <div class="site">
+    <nav class="site-nav">
+      <a class="brand" href="/">Day Experience</a>
+      <div class="nav-links">
+        <a href="/" class="nav-link">Assistant</a>
+        <a href="/logs" class="nav-link is-active">Logs</a>
+        <span class="nav-meta">Espace partenaires · Démo</span>
+      </div>
+    </nav>
+
+    <section class="ops-hero">
+      <div class="ops-hero-copy">
+        <p class="hero-kicker">Espace B2B · Observabilité</p>
+        <h1 class="ops-title">Suivi des conversations</h1>
+        <p class="ops-lead">
+          Chaque message partenaire génère une ligne d’événement : chemin de traitement,
+          coût en tokens, latence et intention détectée.
+        </p>
+      </div>
+      <div class="ops-stats" aria-hidden="true">
+        <div class="ops-stat">
+          <strong id="stat-total">—</strong>
+          <span>Messages suivis</span>
+        </div>
+        <div class="ops-stat ops-stat-accent">
+          <strong id="stat-zero-pct">—</strong>
+          <span>Réponses 0 token</span>
+        </div>
+        <div class="ops-stat">
+          <strong id="stat-latency">—</strong>
+          <span>Latence moyenne</span>
+        </div>
+      </div>
+    </section>
+
+    <section class="ops-panel">
+      <div class="ops-controls">
+        <div class="ops-controls-left">
+          <label>
+            <span>Date</span>
+            <select id="date-select"></select>
+          </label>
+          <label>
+            <span>Chemin</span>
+            <select id="path-filter">
+              <option value="">Tous</option>
+              <option value="deterministic">Déterministe (0 token)</option>
+              <option value="nlu">NLU</option>
+              <option value="dialog">Dialogue</option>
+              <option value="nlu+dialog">NLU + Dialogue</option>
+            </select>
+          </label>
+        </div>
+        <button type="button" id="refresh-btn" class="btn-refresh">Actualiser</button>
+      </div>
+
+      <div class="kpi-grid" id="kpi-grid" aria-live="polite">
+        <article class="kpi">
+          <span class="kpi-label">Messages</span>
+          <strong id="kpi-total">—</strong>
+        </article>
+        <article class="kpi kpi-zero">
+          <span class="kpi-label">0 token</span>
+          <strong id="kpi-zero">—</strong>
+        </article>
+        <article class="kpi">
+          <span class="kpi-label">Tours LLM</span>
+          <strong id="kpi-llm">—</strong>
+        </article>
+        <article class="kpi">
+          <span class="kpi-label">Tokens</span>
+          <strong id="kpi-tokens">—</strong>
+        </article>
+        <article class="kpi">
+          <span class="kpi-label">Latence moy.</span>
+          <strong id="kpi-latency">—</strong>
+        </article>
+        <article class="kpi">
+          <span class="kpi-label">Erreurs</span>
+          <strong id="kpi-errors">—</strong>
+        </article>
+      </div>
+
+      <div class="table-wrap">
+        <div class="table-head">
+          <h2>Événements</h2>
+          <span id="table-meta" class="table-meta">—</span>
+        </div>
+        <div class="table-scroll">
+          <table>
+            <thead>
+              <tr>
+                <th>Heure</th>
+                <th>Chemin</th>
+                <th>Intention</th>
+                <th>Destination</th>
+                <th>Tokens</th>
+                <th>Latence</th>
+                <th>Message</th>
+              </tr>
+            </thead>
+            <tbody id="logs-tbody">
+              <tr class="empty-row"><td colspan="7">Chargement…</td></tr>
+            </tbody>
+          </table>
+        </div>
+      </div>
+    </section>
+
+    <section class="site-strip" aria-hidden="true">
+      <p>Journalisation locale (JSONL) · Aucune donnée client transmise à un tiers</p>
+    </section>
+  </div>
+  <script src="logs.js"></script>
+</body>
+</html>
